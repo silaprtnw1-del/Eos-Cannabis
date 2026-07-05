@@ -1,15 +1,26 @@
 {
   "expo": {
-    "name": "mobile_app",
+    "name": "PHANNAPHA GACP",
     "slug": "mobile_app",
     "version": "1.0.0",
     "orientation": "portrait",
+    "scheme": "phannapha",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "backgroundColor": "#0a0a0c"
+    },
+    "plugins": [
+      "expo-camera",
+      "expo-image-picker",
+      "expo-secure-store"
+    ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.apn.phannapha"
     },
     "android": {
+      "package": "com.apn.phannapha",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -23,3 +34,4 @@
     }
   }
 }
+
