@@ -131,9 +131,15 @@ export default function PlantDirectoryScreen({ isTh, operatorId, userRole }: Pla
     loadData();
   }, [loadData]);
 
-  // Generate safe non-colliding random hex plant ID
+  // Generate collision-resistant plant ID using crypto-random.
+  // 6 hex chars = 16M possibilities per acronym, far beyond Math.random()'s
+  // 4-char (65k) range that was colliding at scale.
   const generatePlantId = (acronym: string) => {
-    const hex = Math.floor(1000 + Math.random() * 9000).toString(16).toUpperCase();
+    const bytes = new Uint8Array(3);
+    crypto.getRandomValues(bytes);
+    const hex = Array.from(bytes)
+      .map((b) => b.toString(16).padStart(2, '0').toUpperCase())
+      .join('');
     return `APN-${acronym.toUpperCase()}-${hex}`;
   };
 

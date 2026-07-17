@@ -11,11 +11,11 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { supabase } from '../supabase';
-import { createClient } from '@supabase/supabase-js';
+import { supabase, createEphemeralClient } from '../supabase';
 import { colors, spacing, radius, fontSize, fontWeight, commonStyles } from '../src/constants/theme';
 import { useTranslation } from '../src/constants/i18n';
 import { GlassCard, EmptyState } from '../src/components/ui';
+import { sanitizeAuthError } from '../src/constants/errors';
 import type { UserRole } from '../src/types';
 
 interface DBUser {
@@ -60,7 +60,10 @@ export default function UserManagementScreen({ isTh, operatorId }: UserManagemen
       }
     } catch (e: any) {
       console.warn('Error fetching users:', e.message);
-      Alert.alert(t('error'), e.message);
+      Alert.alert(
+        t('error'),
+        isTh ? 'ไม่สามารถโหลดรายชื่อพนักงานได้' : 'Failed to load staff list.'
+      );
     } finally {
       setLoading(false);
     }
@@ -86,16 +89,7 @@ export default function UserManagementScreen({ isTh, operatorId }: UserManagemen
 
     setRegistering(true);
     try {
-      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://jfluzuqslgmnlkltupyp.supabase.co';
-      const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpmbHV6dXFzbGdtbmxrbHR1cHlwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyMjA4NDIsImV4cCI6MjA5ODc5Njg0Mn0.mI2x4293a8qoUVPhOVXeZ1fqB2niqVudjAxeSqiyFSY';
-
-      const tempClient = createClient(supabaseUrl, supabaseAnonKey, {
-        auth: {
-          persistSession: false,
-          autoRefreshToken: false,
-          detectSessionInUrl: false,
-        },
-      });
+      const tempClient = createEphemeralClient();
 
       const { error } = await tempClient.auth.signUp({
         email: trimmedEmail,
@@ -125,7 +119,10 @@ export default function UserManagementScreen({ isTh, operatorId }: UserManagemen
       setNewRole('OPERATOR');
       fetchUsers();
     } catch (e: any) {
-      Alert.alert(isTh ? 'การลงทะเบียนล้มเหลว' : 'Registration Failed', e.message);
+      Alert.alert(
+        isTh ? 'การลงทะเบียนล้มเหลว' : 'Registration Failed',
+        sanitizeAuthError(e, isTh)
+      );
     } finally {
       setRegistering(false);
     }
@@ -170,7 +167,10 @@ export default function UserManagementScreen({ isTh, operatorId }: UserManagemen
               Alert.alert(t('confirm'), isTh ? 'เปลี่ยนสถานะผู้ใช้สำเร็จ' : 'User status updated successfully.');
               fetchUsers();
             } catch (e: any) {
-              Alert.alert(t('error'), e.message);
+              Alert.alert(
+                t('error'),
+                isTh ? 'ไม่สามารถเปลี่ยนสถานะผู้ใช้ได้' : 'Failed to update user status.'
+              );
             }
           }
         }
