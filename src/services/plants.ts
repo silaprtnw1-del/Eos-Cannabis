@@ -1,6 +1,7 @@
 import { supabase } from '../../supabase';
 import type { Plant } from '../types';
 import { Result, ok, err } from './result';
+import { generatePlantId } from '../domain/plantId';
 
 export interface RegisterClonesInput {
   strainname: string;
@@ -14,17 +15,6 @@ export interface RegisterClonesInput {
 export interface TransferPlantInput {
   roomname: string;
   stage: Plant['stage'];
-}
-
-// 6 hex chars = 16M possibilities per acronym — avoids Math.random()'s
-// 4-char (65k) collision range at scale.
-function generatePlantId(acronym: string): string {
-  const bytes = new Uint8Array(3);
-  crypto.getRandomValues(bytes);
-  const hex = Array.from(bytes)
-    .map((b) => b.toString(16).padStart(2, '0').toUpperCase())
-    .join('');
-  return `APN-${acronym.toUpperCase()}-${hex}`;
 }
 
 export const plantsService = {

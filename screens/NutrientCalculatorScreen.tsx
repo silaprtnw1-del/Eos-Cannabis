@@ -12,14 +12,12 @@ import { colors, spacing, radius, fontSize, fontWeight } from '../src/constants/
 import { useTranslation } from '../src/constants/i18n';
 import { DosingCalculator, RunoffPanel } from '../src/components/nutrients';
 import { useBatches, useRooms, useCreateCultivationLog } from '../src/hooks';
+import { calculateDosing, FACTORS } from '../src/domain/nutrientDosing';
 
 interface NutrientCalculatorScreenProps {
   isTh: boolean;
   operatorId: string;
 }
-
-const GAL_TO_L = 3.78541;
-const FACTORS: Record<string, number> = { core: 19, grow: 32, bloom: 32, calmag: 57 };
 
 export default function NutrientCalculatorScreen({ isTh, operatorId }: NutrientCalculatorScreenProps) {
   const { t } = useTranslation(isTh);
@@ -86,50 +84,10 @@ export default function NutrientCalculatorScreen({ isTh, operatorId }: NutrientC
   const parsedPhIn = useMemo(() => parseFloat(phInInput) || 0, [phInInput]);
 
   // Derived dosing calculations - useMemo prevents calculations running unnecessarily
-  const calculations = useMemo(() => {
-    const gallons = parsedWaterVolume / GAL_TO_L;
-    const doses: Record<string, { ml: number; mlPerGal: number }> = {};
-    let calMagWarning = false;
-
-    Object.entries(FACTORS).forEach(([fert, factor]) => {
-      if (activeFerts[fert]) {
-        const mlPerGal = (factor * parsedTargetPpm) / 1500;
-        const totalMl = mlPerGal * gallons;
-        doses[fert] = {
-          ml: parseFloat(totalMl.toFixed(2)) || 0,
-          mlPerGal: parseFloat(mlPerGal.toFixed(2)) || 0,
-        };
-
-        if (fert === 'calmag' && mlPerGal > 5.0) {
-          calMagWarning = true;
-        }
-      } else {
-        doses[fert] = { ml: 0, mlPerGal: 0 };
-      }
-    });
-
-    const currentEcIn = parsedTargetPpm / 500; // Hanna scale conversion
-
-    // Runoff alerts validation
-    const parsedPhOutVal = parseFloat(phOut);
-    const parsedEcOutVal = parseFloat(ecOut);
-    let runoffAlert = false;
-
-    if (!isNaN(parsedPhOutVal) && (parsedPhOutVal < 5.5 || parsedPhOutVal > 6.5)) {
-      runoffAlert = true;
-    }
-    if (!isNaN(parsedEcOutVal) && (parsedEcOutVal - currentEcIn > 1.0)) {
-      runoffAlert = true;
-    }
-
-    return {
-      gallons,
-      doses,
-      currentEcIn,
-      calMagWarning,
-      runoffAlert,
-    };
-  }, [parsedWaterVolume, parsedTargetPpm, activeFerts, phOut, ecOut]);
+  const calculations = useMemo(
+    () => calculateDosing(parsedWaterVolume, parsedTargetPpm, activeFerts, phOut, ecOut),
+    [parsedWaterVolume, parsedTargetPpm, activeFerts, phOut, ecOut]
+  );
 
   const handleSaveLog = async () => {
     setSaveStatus('Saving...');

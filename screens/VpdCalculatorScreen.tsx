@@ -3,14 +3,18 @@ import { StyleSheet, Text, View, ScrollView } from 'react-native';
 import { colors, spacing, radius, fontSize, fontWeight, commonStyles } from '../src/constants/theme';
 import { useTranslation, TranslationKey } from '../src/constants/i18n';
 import { GlassCard, StepperInput, SubTabBar } from '../src/components/ui';
+import { calculateVpd, VpdStatus } from '../src/domain/vpd';
 
 interface VpdCalculatorScreenProps {
   isTh: boolean;
 }
 
-// Saturation Vapor Pressure formula (Tetens equation in kPa)
-const getSVP = (tempCelsius: number) => {
-  return 0.61078 * Math.exp((17.27 * tempCelsius) / (tempCelsius + 237.3));
+const STATUS_KEYS: Record<VpdStatus, { textKey: TranslationKey; descKey: TranslationKey; color: string }> = {
+  too_wet: { textKey: 'vpd_status_too_wet', descKey: 'vpd_status_too_wet_desc', color: colors.info },
+  clone: { textKey: 'vpd_status_clone', descKey: 'vpd_status_clone_desc', color: colors.accent },
+  veg: { textKey: 'vpd_status_veg', descKey: 'vpd_status_veg_desc', color: colors.accent },
+  bloom: { textKey: 'vpd_status_bloom', descKey: 'vpd_status_bloom_desc', color: colors.warning },
+  too_dry: { textKey: 'vpd_status_too_dry', descKey: 'vpd_status_too_dry_desc', color: colors.danger },
 };
 
 export default function VpdCalculatorScreen({ isTh }: VpdCalculatorScreenProps) {
@@ -22,11 +26,7 @@ export default function VpdCalculatorScreen({ isTh }: VpdCalculatorScreenProps) 
 
   // Memoize all calculations to avoid recalculating on unrelated renders
   const calculations = useMemo(() => {
-    const leafTempC = roomTemp + offset;
-    const svpAir = getSVP(roomTemp);
-    const svpLeaf = getSVP(leafTempC);
-    const avpAir = svpAir * (rh / 100);
-    const vpd = Math.max(0, svpLeaf - avpAir);
+    const { vpd, leafTempC, svpAir, svpLeaf, avpAir, status } = calculateVpd(roomTemp, rh, offset);
 
     // Temperature unit conversions for display
     const displayRoomTemp = useFahrenheit ? (roomTemp * 9) / 5 + 32 : roomTemp;
@@ -34,32 +34,7 @@ export default function VpdCalculatorScreen({ isTh }: VpdCalculatorScreenProps) 
     const displayOffset = useFahrenheit ? (offset * 9) / 5 : offset;
     const tempUnit = useFahrenheit ? '°F' : '°C';
 
-    // VPD Status & Actions
-    let statusTextKey: TranslationKey = 'vpd_status_too_wet';
-    let statusDescKey: TranslationKey = 'vpd_status_too_wet_desc';
-    let statusColor: string = colors.info; // blue
-
-    if (vpd < 0.4) {
-      statusTextKey = 'vpd_status_too_wet';
-      statusDescKey = 'vpd_status_too_wet_desc';
-      statusColor = colors.info;
-    } else if (vpd >= 0.4 && vpd < 0.8) {
-      statusTextKey = 'vpd_status_clone';
-      statusDescKey = 'vpd_status_clone_desc';
-      statusColor = colors.accent; // green
-    } else if (vpd >= 0.8 && vpd <= 1.1) {
-      statusTextKey = 'vpd_status_veg';
-      statusDescKey = 'vpd_status_veg_desc';
-      statusColor = colors.accent;
-    } else if (vpd > 1.1 && vpd <= 1.5) {
-      statusTextKey = 'vpd_status_bloom';
-      statusDescKey = 'vpd_status_bloom_desc';
-      statusColor = colors.warning; // orange
-    } else {
-      statusTextKey = 'vpd_status_too_dry';
-      statusDescKey = 'vpd_status_too_dry_desc';
-      statusColor = colors.danger; // red
-    }
+    const { textKey: statusTextKey, descKey: statusDescKey, color: statusColor } = STATUS_KEYS[status];
 
     return {
       vpd,

@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { usePlantStages } from './usePlants';
 import { useLatestClimates } from './useEnvironmentalLogs';
 import { useChecklistByDate } from './useGacpChecklists';
+import { calculateCompliance } from '../domain/gacpCompliance';
 
 export interface DashboardStats {
   cloneCount: number;
@@ -35,17 +36,10 @@ export function useDashboardStats(): DashboardStats {
     );
   }, [stagesQuery.data]);
 
-  const compliance = useMemo(() => {
-    const tasks = checklistQuery.data?.tasks;
-    if (!tasks) return { complianceRate: 0, totalTasks: 5, completedTasks: 0 };
-    const keys = Object.keys(tasks);
-    const completed = keys.filter((k) => tasks[k]).length;
-    return {
-      totalTasks: keys.length || 5,
-      completedTasks: completed,
-      complianceRate: keys.length > 0 ? Math.round((completed / keys.length) * 100) : 0,
-    };
-  }, [checklistQuery.data]);
+  const compliance = useMemo(
+    () => calculateCompliance(checklistQuery.data?.tasks),
+    [checklistQuery.data]
+  );
 
   const firstError = stagesQuery.error ?? climatesQuery.error ?? checklistQuery.error;
 
