@@ -10,12 +10,11 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { supabase } from '../supabase';
 import { colors, spacing, radius, fontSize, fontWeight, commonStyles } from '../src/constants/theme';
 import { useTranslation } from '../src/constants/i18n';
 import { GlassCard, StepperInput } from '../src/components/ui';
 import { RoomDropdown } from '../src/components/plants';
-import type { Batch, Room } from '../src/types';
+import { useBatches, useRooms, useCreateCultivationLog } from '../src/hooks';
 
 
 interface NutrientCalculatorScreenProps {
@@ -28,11 +27,18 @@ const FACTORS: Record<string, number> = { core: 19, grow: 32, bloom: 32, calmag:
 
 export default function NutrientCalculatorScreen({ isTh, operatorId }: NutrientCalculatorScreenProps) {
   const { t } = useTranslation(isTh);
-  const [batches, setBatches] = useState<Batch[]>([]);
-  const [rooms, setRooms] = useState<Room[]>([]);
-  const [loadingBatches, setLoadingBatches] = useState<boolean>(true);
-  const [loadingRooms, setLoadingRooms] = useState<boolean>(true);
-  const [loadError, setLoadError] = useState<string>('');
+  const batchesQuery = useBatches();
+  const roomsQuery = useRooms();
+  const createLog = useCreateCultivationLog();
+  const batches = batchesQuery.data ?? [];
+  const rooms = roomsQuery.data ?? [];
+  const loadingBatches = batchesQuery.isLoading;
+  const loadingRooms = roomsQuery.isLoading;
+  const loadError = batchesQuery.error
+    ? batchesQuery.error.message
+    : roomsQuery.error
+    ? roomsQuery.error.message
+    : '';
 
   // Form Inputs - Single state string values to avoid paired state drift
   const [selectedBatchId, setSelectedBatchId] = useState<string>('');
@@ -58,59 +64,21 @@ export default function NutrientCalculatorScreen({ isTh, operatorId }: NutrientC
   
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Fetch batches & rooms
+  // Auto-select first batch/room once loaded
   useEffect(() => {
-    let active = true;
-    const fetchInitialData = async () => {
-      setLoadingBatches(true);
-      setLoadingRooms(true);
-      try {
-        const { data: bData, error: bError } = await supabase
-          .from('batches')
-          .select('id, name, strainname')
-          .eq('status', 'ACTIVE');
-        
-        if (bError) throw bError;
+    if (batches.length > 0 && !selectedBatchId) {
+      setSelectedBatchId(batches[0].id);
+    }
+  }, [batches, selectedBatchId]);
 
-        const { data: rData, error: rError } = await supabase
-          .from('rooms')
-          .select('id, name, type')
-          .eq('is_active', true);
+  useEffect(() => {
+    if (rooms.length > 0 && !roomName) {
+      setRoomName(rooms[0].name);
+    }
+  }, [rooms, roomName]);
 
-        if (rError) throw rError;
-
-        if (active) {
-          setBatches(bData || []);
-          if (bData && bData.length > 0) {
-            setSelectedBatchId(bData[0].id);
-          }
-
-          setRooms(rData || []);
-          if (rData && rData.length > 0) {
-            setRoomName(rData[0].name);
-          }
-        }
-      } catch (e: any) {
-        console.warn('Failed to fetch initial data from Supabase:', e);
-        if (active) {
-          setLoadError(
-            isTh
-              ? 'ไม่สามารถเชื่อมต่อระบบ กรุณาตรวจสอบเครือข่ายและลองอีกครั้ง'
-              : 'Unable to connect. Check your network and try again.'
-          );
-        }
-      } finally {
-        if (active) {
-          setLoadingBatches(false);
-          setLoadingRooms(false);
-        }
-      }
-    };
-    
-    fetchInitialData();
-    
+  useEffect(() => {
     return () => {
-      active = false;
       if (timerRef.current) {
         clearTimeout(timerRef.current);
       }
@@ -201,7 +169,7 @@ export default function NutrientCalculatorScreen({ isTh, operatorId }: NutrientC
         },
       };
 
-      const { error } = await supabase.from('cultivation_logs').insert({
+      const { queued } = await createLog.mutateAsync({
         batchid: selectedBatchId,
         roomname: roomName,
         watervolume: parsedWaterVolume,
@@ -216,8 +184,9 @@ export default function NutrientCalculatorScreen({ isTh, operatorId }: NutrientC
         notes: notes || null,
       });
 
-      if (error) throw error;
-      setSaveStatus(t('saved_success'));
+      setSaveStatus(
+        queued ? (isTh ? '📥 บันทึกในเครื่อง — จะซิงค์เมื่อออนไลน์' : '📥 Saved locally — will sync when online') : t('saved_success')
+      );
 
       // Clear input fields
       setRunoffVolume('');
@@ -253,35 +222,8 @@ export default function NutrientCalculatorScreen({ isTh, operatorId }: NutrientC
             <TouchableOpacity
               style={styles.retryBtn}
               onPress={() => {
-                setLoadError('');
-                setLoadingBatches(true);
-                setLoadingRooms(true);
-                // Re-trigger the effect by re-mounting via key change isn't trivial here;
-                // simplest: reload batches/rooms inline.
-                const reload = async () => {
-                  try {
-                    const { data: bData } = await supabase
-                      .from('batches')
-                      .select('id, name, strainname')
-                      .eq('status', 'ACTIVE');
-                    const { data: rData } = await supabase
-                      .from('rooms')
-                      .select('id, name, type')
-                      .eq('is_active', true);
-                    setBatches(bData || []);
-                    if (bData && bData.length > 0) setSelectedBatchId(bData[0].id);
-                    setRooms(rData || []);
-                    if (rData && rData.length > 0) setRoomName(rData[0].name);
-                  } catch (err) {
-                    setLoadError(
-                      isTh ? 'ยังเชื่อมต่อไม่ได้' : 'Still unable to connect.'
-                    );
-                  } finally {
-                    setLoadingBatches(false);
-                    setLoadingRooms(false);
-                  }
-                };
-                reload();
+                batchesQuery.refetch();
+                roomsQuery.refetch();
               }}
               accessibilityRole="button"
               accessibilityLabel={t('retry')}

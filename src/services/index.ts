@@ -1,4 +1,16 @@
 export { authService } from './auth';
 export { usersService } from './users';
+export type { RegisterOperatorInput, DBUser } from './users';
+export { plantsService } from './plants';
+export type { RegisterClonesInput, TransferPlantInput } from './plants';
+export { roomsService } from './rooms';
+export { batchesService } from './batches';
+export { cultivationLogsService } from './cultivationLogs';
+export type { CreateCultivationLogInput } from './cultivationLogs';
+export { environmentalLogsService } from './environmentalLogs';
+export { gacpChecklistsService } from './gacpChecklists';
+export type { UpsertChecklistInput } from './gacpChecklists';
+export { actionLogsService } from './actionLogs';
+export type { CreateActionLogInput } from './actionLogs';
 export type { Result } from './result';
 export { ok, err } from './result';

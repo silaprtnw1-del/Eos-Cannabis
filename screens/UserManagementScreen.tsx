@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -11,22 +11,12 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { supabase, createEphemeralClient } from '../supabase';
 import { colors, spacing, radius, fontSize, fontWeight, commonStyles } from '../src/constants/theme';
 import { useTranslation } from '../src/constants/i18n';
 import { GlassCard, EmptyState } from '../src/components/ui';
 import { sanitizeAuthError } from '../src/constants/errors';
+import { useUsers, useRegisterOperator, useSetUserActive, useCreateActionLog } from '../src/hooks';
 import type { UserRole } from '../src/types';
-
-interface DBUser {
-  id: string;
-  username: string;
-  fullname: string;
-  role: UserRole;
-  isactive: boolean;
-  phone?: string;
-  createdat: string;
-}
 
 interface UserManagementScreenProps {
   isTh: boolean;
@@ -35,8 +25,12 @@ interface UserManagementScreenProps {
 
 export default function UserManagementScreen({ isTh, operatorId }: UserManagementScreenProps) {
   const { t } = useTranslation(isTh);
-  const [usersList, setUsersList] = useState<DBUser[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const usersQuery = useUsers();
+  const registerOperator = useRegisterOperator();
+  const setUserActive = useSetUserActive();
+  const createActionLog = useCreateActionLog();
+  const usersList = usersQuery.data ?? [];
+  const loading = usersQuery.isLoading;
 
   // Form states for creating new staff
   const [newFullName, setNewFullName] = useState<string>('');
@@ -45,33 +39,6 @@ export default function UserManagementScreen({ isTh, operatorId }: UserManagemen
   const [newPassword, setNewPassword] = useState<string>('');
   const [newRole, setNewRole] = useState<UserRole>('OPERATOR');
   const [registering, setRegistering] = useState<boolean>(false);
-
-  const fetchUsers = async () => {
-    setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .order('createdat', { ascending: false });
-
-      if (error) throw error;
-      if (data) {
-        setUsersList(data as DBUser[]);
-      }
-    } catch (e: any) {
-      console.warn('Error fetching users:', e.message);
-      Alert.alert(
-        t('error'),
-        isTh ? 'ไม่สามารถโหลดรายชื่อพนักงานได้' : 'Failed to load staff list.'
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchUsers();
-  }, []);
 
   const handleRegisterUser = async () => {
     const trimmedEmail = newEmail.trim();
@@ -89,26 +56,18 @@ export default function UserManagementScreen({ isTh, operatorId }: UserManagemen
 
     setRegistering(true);
     try {
-      const tempClient = createEphemeralClient();
-
-      const { error } = await tempClient.auth.signUp({
+      await registerOperator.mutateAsync({
         email: trimmedEmail,
         password: newPassword,
+        fullName: trimmedFullName,
+        role: newRole,
         phone: trimmedPhone,
-        options: {
-          data: {
-            fullName: trimmedFullName,
-            role: newRole,
-          },
-        },
       });
-
-      if (error) throw error;
 
       Alert.alert(
         isTh ? 'ลงทะเบียนสำเร็จ' : 'Registration Successful',
-        isTh 
-          ? `ลงทะเบียนพนักงาน ${trimmedFullName} เรียบร้อยแล้ว` 
+        isTh
+          ? `ลงทะเบียนพนักงาน ${trimmedFullName} เรียบร้อยแล้ว`
           : `Operator ${trimmedFullName} registered successfully.`
       );
 
@@ -117,7 +76,6 @@ export default function UserManagementScreen({ isTh, operatorId }: UserManagemen
       setNewFullName('');
       setNewPhone('');
       setNewRole('OPERATOR');
-      fetchUsers();
     } catch (e: any) {
       Alert.alert(
         isTh ? 'การลงทะเบียนล้มเหลว' : 'Registration Failed',
@@ -139,8 +97,8 @@ export default function UserManagementScreen({ isTh, operatorId }: UserManagemen
 
     Alert.alert(
       isTh ? 'ยืนยันการเปลี่ยนสถานะ' : 'Confirm Status Change',
-      isTh 
-        ? `คุณต้องการ ${currentActive ? 'ปิดใช้งาน' : 'เปิดใช้งาน'} บัญชีผู้ใช้นี้ใช่หรือไม่?` 
+      isTh
+        ? `คุณต้องการ ${currentActive ? 'ปิดใช้งาน' : 'เปิดใช้งาน'} บัญชีผู้ใช้นี้ใช่หรือไม่?`
         : `Are you sure you want to ${currentActive ? 'deactivate' : 'activate'} this user account?`,
       [
         { text: isTh ? 'ยกเลิก' : 'Cancel', style: 'cancel' },
@@ -148,15 +106,11 @@ export default function UserManagementScreen({ isTh, operatorId }: UserManagemen
           text: isTh ? 'ยืนยัน' : 'Confirm',
           onPress: async () => {
             try {
-              const { error } = await supabase
-                .from('users')
-                .update({ isactive: !currentActive })
-                .eq('id', userId);
+              await setUserActive.mutateAsync({ userId, isActive: !currentActive });
 
-              if (error) throw error;
-
-              // Log audit trail
-              await supabase.from('action_logs').insert({
+              // No DB trigger covers user status changes (verified in Step 0)
+              // — this manual audit log insert is the only record of it.
+              await createActionLog.mutateAsync({
                 actiontype: currentActive ? 'DEACTIVATE_USER' : 'ACTIVATE_USER',
                 operatorid: operatorId,
                 targettype: 'USER',
@@ -165,7 +119,6 @@ export default function UserManagementScreen({ isTh, operatorId }: UserManagemen
               });
 
               Alert.alert(t('confirm'), isTh ? 'เปลี่ยนสถานะผู้ใช้สำเร็จ' : 'User status updated successfully.');
-              fetchUsers();
             } catch (e: any) {
               Alert.alert(
                 t('error'),
