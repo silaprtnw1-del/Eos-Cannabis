@@ -158,42 +158,4 @@ export const commonStyles = StyleSheet.create({
     letterSpacing: 0.5,
   },
 
-  /** Sub-tab bar row */
-  tabRow: {
-    flexDirection: 'row' as const,
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: 4,
-    marginBottom: spacing.lg,
-  },
-
-  /** Individual tab button */
-  tabBtn: {
-    flex: 1,
-    paddingVertical: 10,
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
-    borderRadius: radius.md,
-  },
-
-  /** Active tab button */
-  tabBtnActive: {
-    backgroundColor: colors.accentDim,
-    borderWidth: 1,
-    borderColor: colors.accentBorder,
-  },
-
-  /** Tab button label */
-  tabBtnText: {
-    color: colors.textMuted,
-    fontSize: fontSize.md,
-    fontWeight: fontWeight.semibold,
-  },
-
-  /** Active tab button label */
-  tabBtnTextActive: {
-    color: colors.accent,
-  },
 });

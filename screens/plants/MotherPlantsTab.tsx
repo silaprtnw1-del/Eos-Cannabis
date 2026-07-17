@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, TextInput, Alert, ScrollView } from 'react-native';
 import { colors, spacing, radius, fontWeight, fontSize, commonStyles } from '../../src/constants/theme';
 import { useTranslation } from '../../src/constants/i18n';
-import { GlassCard } from '../../src/components/ui';
+import { GlassCard, ErrorState } from '../../src/components/ui';
 import { RoomSelector } from '../../src/components/plants';
 import { useRooms, useMotherPlants, useCreateMotherPlant, useAllPlants, useCreateActionLog } from '../../src/hooks';
 import { canPerform } from '../../src/lib/permissions';
@@ -144,25 +144,34 @@ export default function MotherPlantsTab({ isTh, operatorId, userRole }: MotherPl
       </GlassCard>
 
       <GlassCard title={t('tab_mother_plants')}>
-        {mothers.length === 0 ? (
+        {mothersQuery.isError ? (
+          <ErrorState message={(mothersQuery.error as Error)?.message} onRetry={() => mothersQuery.refetch()} />
+        ) : mothers.length === 0 ? (
           <Text style={styles.emptyText}>{t('no_data')}</Text>
         ) : (
           mothers.map((m) => {
             const s = statsByMotherId.get(m.id);
             return (
-              <View key={m.id} style={styles.motherRow}>
-                <Text style={styles.motherName} numberOfLines={1}>{m.strainname}</Text>
+              <View key={m.id} style={styles.motherCard}>
+                <View style={styles.motherCardHeader}>
+                  <Text style={styles.motherName} numberOfLines={1}>{m.strainname}</Text>
+                </View>
                 <Text style={styles.motherSub}>{m.id} · {m.roomname}</Text>
                 <View style={styles.motherStatsRow}>
-                  <Text style={styles.motherStatText}>
-                    {t('mother_stats_total_clones')}: {s?.totalClones ?? 0}
-                  </Text>
-                  <Text style={styles.motherStatText}>
-                    {t('mother_stats_failed')}: {s?.failedClones ?? 0}
-                  </Text>
-                  <Text style={styles.motherStatText}>
-                    {t('mother_stats_success_rate')}: {s ? Math.round(s.successRate * 100) : 0}%
-                  </Text>
+                  <View style={styles.motherStatPill}>
+                    <Text style={styles.motherStatValue}>{s?.totalClones ?? 0}</Text>
+                    <Text style={styles.motherStatLabel}>{t('mother_stats_total_clones')}</Text>
+                  </View>
+                  <View style={styles.motherStatPill}>
+                    <Text style={[styles.motherStatValue, { color: colors.danger }]}>{s?.failedClones ?? 0}</Text>
+                    <Text style={styles.motherStatLabel}>{t('mother_stats_failed')}</Text>
+                  </View>
+                  <View style={styles.motherStatPill}>
+                    <Text style={[styles.motherStatValue, { color: colors.accent }]}>
+                      {s ? Math.round(s.successRate * 100) : 0}%
+                    </Text>
+                    <Text style={styles.motherStatLabel}>{t('mother_stats_success_rate')}</Text>
+                  </View>
                 </View>
               </View>
             );
@@ -196,28 +205,48 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: fontSize.body,
   },
-  motherRow: {
-    paddingVertical: spacing.sm,
+  motherCard: {
+    backgroundColor: colors.card,
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
+  },
+  motherCardHeader: {
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: colors.borderSubtle,
+    paddingBottom: spacing.sm,
+    marginBottom: spacing.sm,
   },
   motherName: {
     color: colors.text,
-    fontSize: fontSize.body,
+    fontSize: fontSize.lg,
     fontWeight: fontWeight.bold,
   },
   motherSub: {
     color: colors.textMuted,
     fontSize: fontSize.xs,
-    marginTop: 2,
+    marginBottom: spacing.sm,
   },
   motherStatsRow: {
     flexDirection: 'row',
-    gap: spacing.md,
-    marginTop: spacing.xs,
+    justifyContent: 'space-between',
   },
-  motherStatText: {
+  motherStatPill: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  motherStatValue: {
+    color: colors.text,
+    fontSize: fontSize.lg,
+    fontWeight: fontWeight.bold,
+  },
+  motherStatLabel: {
     color: colors.textMuted,
     fontSize: fontSize.xs,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginTop: 2,
   },
 });

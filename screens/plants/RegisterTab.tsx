@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, TextInput, Alert, ScrollView } from 'react-native';
-import { colors, spacing, radius, fontWeight, commonStyles } from '../../src/constants/theme';
+import { colors, spacing, radius, fontSize, fontWeight, commonStyles } from '../../src/constants/theme';
 import { useTranslation } from '../../src/constants/i18n';
-import { GlassCard } from '../../src/components/ui';
+import { GlassCard, PillSelector } from '../../src/components/ui';
 import { RoomSelector, BatchSelector } from '../../src/components/plants';
 import {
   useRooms,
@@ -35,6 +35,7 @@ export default function RegisterTab({ isTh, operatorId, userRole }: RegisterTabP
   const rooms = roomsQuery.data ?? [];
   const batches = batchesQuery.data ?? [];
   const mothers = mothersQuery.data ?? [];
+  const loadError = roomsQuery.error?.message || batchesQuery.error?.message || mothersQuery.error?.message || '';
 
   const [mode, setMode] = useState<RegisterMode>('NEW_BATCH');
   const [room, setRoom] = useState<string>('');
@@ -161,33 +162,33 @@ export default function RegisterTab({ isTh, operatorId, userRole }: RegisterTabP
 
   return (
     <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
-      <GlassCard title={mode === 'NEW_BATCH' ? t('plant_register_clones') : t('plant_import_plants')}>
-        <View style={commonStyles.inputContainer}>
-          <View style={styles.sourceRow}>
-            <TouchableOpacity
-              style={[styles.sourceBtn, mode === 'NEW_BATCH' && styles.sourceBtnActive]}
-              onPress={() => setMode('NEW_BATCH')}
-              accessibilityRole="button"
-              accessibilityState={{ selected: mode === 'NEW_BATCH' }}
-              accessibilityLabel={t('plant_mode_new_batch')}
-            >
-              <Text style={[styles.sourceBtnText, mode === 'NEW_BATCH' && styles.sourceBtnTextActive]}>
-                {t('plant_mode_new_batch')}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.sourceBtn, mode === 'EXISTING_BATCH' && styles.sourceBtnActive]}
-              onPress={() => setMode('EXISTING_BATCH')}
-              accessibilityRole="button"
-              accessibilityState={{ selected: mode === 'EXISTING_BATCH' }}
-              accessibilityLabel={t('plant_mode_existing_batch')}
-            >
-              <Text style={[styles.sourceBtnText, mode === 'EXISTING_BATCH' && styles.sourceBtnTextActive]}>
-                {t('plant_mode_existing_batch')}
-              </Text>
-            </TouchableOpacity>
-          </View>
+      {loadError ? (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorBannerText}>{loadError}</Text>
+          <TouchableOpacity
+            style={styles.retryBtn}
+            onPress={() => {
+              roomsQuery.refetch();
+              batchesQuery.refetch();
+              mothersQuery.refetch();
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={t('retry')}
+          >
+            <Text style={styles.retryBtnText}>{t('retry')}</Text>
+          </TouchableOpacity>
         </View>
+      ) : null}
+
+      <GlassCard title={mode === 'NEW_BATCH' ? t('plant_register_clones') : t('plant_import_plants')}>
+        <PillSelector
+          options={[
+            { value: 'NEW_BATCH', label: t('plant_mode_new_batch') },
+            { value: 'EXISTING_BATCH', label: t('plant_mode_existing_batch') },
+          ]}
+          selectedValue={mode}
+          onChange={(v) => setMode(v as RegisterMode)}
+        />
 
         {mode === 'NEW_BATCH' ? (
           <>
@@ -230,64 +231,26 @@ export default function RegisterTab({ isTh, operatorId, userRole }: RegisterTabP
               />
             </View>
 
-            <View style={commonStyles.inputContainer}>
-              <Text style={commonStyles.inputLabel}>{t('plant_source')}</Text>
-              <View style={styles.sourceRow}>
-                <TouchableOpacity
-                  style={[styles.sourceBtn, source === 'PURCHASED_CLONE' && styles.sourceBtnActive]}
-                  onPress={() => setSource('PURCHASED_CLONE')}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: source === 'PURCHASED_CLONE' }}
-                  accessibilityLabel={t('plant_source_purchased_clone')}
-                >
-                  <Text style={[styles.sourceBtnText, source === 'PURCHASED_CLONE' && styles.sourceBtnTextActive]}>
-                    {t('plant_source_purchased_clone')}
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.sourceBtn, source === 'SEED_GROWN' && styles.sourceBtnActive]}
-                  onPress={() => setSource('SEED_GROWN')}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: source === 'SEED_GROWN' }}
-                  accessibilityLabel={t('plant_source_seed_grown')}
-                >
-                  <Text style={[styles.sourceBtnText, source === 'SEED_GROWN' && styles.sourceBtnTextActive]}>
-                    {t('plant_source_seed_grown')}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
+            <PillSelector
+              label={t('plant_source')}
+              options={[
+                { value: 'PURCHASED_CLONE', label: t('plant_source_purchased_clone') },
+                { value: 'SEED_GROWN', label: t('plant_source_seed_grown') },
+              ]}
+              selectedValue={source}
+              onChange={(v) => setSource(v as PlantSource)}
+            />
 
-            <View style={commonStyles.inputContainer}>
-              <Text style={commonStyles.inputLabel}>{t('mother_select_optional')}</Text>
-              <View style={[styles.sourceRow, styles.motherRowWrap]}>
-                <TouchableOpacity
-                  style={[styles.sourceBtn, motherId === '' && styles.sourceBtnActive]}
-                  onPress={() => setMotherId('')}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: motherId === '' }}
-                  accessibilityLabel={t('mother_no_mother')}
-                >
-                  <Text style={[styles.sourceBtnText, motherId === '' && styles.sourceBtnTextActive]}>
-                    {t('mother_no_mother')}
-                  </Text>
-                </TouchableOpacity>
-                {matchingMothers.map((m) => (
-                  <TouchableOpacity
-                    key={m.id}
-                    style={[styles.sourceBtn, motherId === m.id && styles.sourceBtnActive]}
-                    onPress={() => setMotherId(m.id)}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: motherId === m.id }}
-                    accessibilityLabel={`Mother ${m.id}`}
-                  >
-                    <Text style={[styles.sourceBtnText, motherId === m.id && styles.sourceBtnTextActive]} numberOfLines={1}>
-                      {m.id}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
+            <PillSelector
+              label={t('mother_select_optional')}
+              wrap
+              options={[
+                { value: '', label: t('mother_no_mother') },
+                ...matchingMothers.map((m) => ({ value: m.id, label: m.id })),
+              ]}
+              selectedValue={motherId}
+              onChange={setMotherId}
+            />
           </>
         ) : (
           <>
@@ -356,32 +319,31 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: fontWeight.bold,
   },
-  sourceRow: {
-    flexDirection: 'row',
-    gap: spacing.xs,
-  },
-  motherRowWrap: {
-    flexWrap: 'wrap',
-  },
-  sourceBtn: {
-    flex: 1,
-    backgroundColor: colors.inputBg,
+  errorBanner: {
+    backgroundColor: colors.dangerDim,
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    paddingVertical: 10,
+    borderColor: colors.danger,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
     alignItems: 'center',
   },
-  sourceBtnActive: {
-    backgroundColor: colors.accentDim,
-    borderColor: colors.accent,
-  },
-  sourceBtnText: {
-    color: colors.textMuted,
-    fontSize: 13,
+  errorBannerText: {
+    color: colors.danger,
+    fontSize: fontSize.md,
     fontWeight: fontWeight.bold,
+    textAlign: 'center',
+    marginBottom: spacing.md,
   },
-  sourceBtnTextActive: {
-    color: colors.accent,
+  retryBtn: {
+    backgroundColor: colors.danger,
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+  },
+  retryBtnText: {
+    color: colors.textOnAccent,
+    fontSize: fontSize.body,
+    fontWeight: fontWeight.bold,
   },
 });

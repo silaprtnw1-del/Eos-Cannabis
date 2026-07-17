@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { StyleSheet, Text, View, TextInput, ActivityIndicator, FlatList } from 'react-native';
 import { colors, spacing, radius, fontSize, fontWeight } from '../../src/constants/theme';
 import { useTranslation } from '../../src/constants/i18n';
-import { EmptyState } from '../../src/components/ui';
+import { EmptyState, ErrorState } from '../../src/components/ui';
 import { usePlants } from '../../src/hooks';
 import { groupPlantsByStrain } from '../../src/domain/strainInventory';
 import type { UserRole } from '../../src/types';
@@ -51,7 +51,9 @@ export default function InventoryTab({ isTh }: InventoryTabProps) {
       )}
 
       {loading ? (
-        <ActivityIndicator size="large" color={colors.accent} style={{ marginVertical: 30 }} />
+        <ActivityIndicator size="large" color={colors.accent} style={styles.loadingIndicator} />
+      ) : plantsQuery.isError ? (
+        <ErrorState message={(plantsQuery.error as Error)?.message} onRetry={() => plantsQuery.refetch()} />
       ) : inventory.length === 0 ? (
         <EmptyState icon="🌱" title={t('inv_empty_farm')} />
       ) : filteredInventory.length === 0 ? (
@@ -122,6 +124,9 @@ const styles = StyleSheet.create({
     fontSize: fontSize.body,
     fontWeight: fontWeight.semibold,
     marginBottom: spacing.md,
+  },
+  loadingIndicator: {
+    marginVertical: spacing.xxl,
   },
   list: {
     paddingBottom: 40,

@@ -6,7 +6,7 @@
  * flag on each TabItem.
  */
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import { colors, radius, spacing, fontSize, fontWeight } from '../../constants/theme';
 
 export interface TabItem {
@@ -29,32 +29,37 @@ export function SubTabBar({ tabs, activeTab, onTabChange }: SubTabBarProps) {
 
   return (
     <View style={styles.tabRow}>
-      {visibleTabs.map(tab => (
-        <TouchableOpacity
-          key={tab.key}
-          style={[styles.tabBtn, activeTab === tab.key && styles.tabBtnActive]}
-          onPress={() => onTabChange(tab.key)}
-          accessibilityRole="tab"
-          accessibilityState={{ selected: activeTab === tab.key }}
-          accessibilityLabel={tab.label}
-        >
-          <Text
-            style={[
-              styles.tabBtnText,
-              activeTab === tab.key && styles.tabBtnTextActive,
-            ]}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.tabScrollContent}
+      >
+        {visibleTabs.map(tab => (
+          <TouchableOpacity
+            key={tab.key}
+            style={[styles.tabBtn, activeTab === tab.key && styles.tabBtnActive]}
+            onPress={() => onTabChange(tab.key)}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: activeTab === tab.key }}
+            accessibilityLabel={tab.label}
           >
-            {tab.label}
-          </Text>
-        </TouchableOpacity>
-      ))}
+            <Text
+              style={[
+                styles.tabBtnText,
+                activeTab === tab.key && styles.tabBtnTextActive,
+              ]}
+            >
+              {tab.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   tabRow: {
-    flexDirection: 'row',
     backgroundColor: 'rgba(255, 255, 255, 0.03)',
     borderRadius: 14,
     borderWidth: 1,
@@ -62,9 +67,13 @@ const styles = StyleSheet.create({
     padding: 4,
     marginBottom: spacing.lg,
   },
+  tabScrollContent: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+  },
   tabBtn: {
-    flex: 1,
     paddingVertical: 10,
+    paddingHorizontal: spacing.lg,
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: radius.md,

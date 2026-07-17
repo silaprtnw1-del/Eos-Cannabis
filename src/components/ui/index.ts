@@ -10,3 +10,5 @@ export { SubTabBar } from './SubTabBar';
 export type { TabItem } from './SubTabBar';
 export { EmptyState } from './EmptyState';
 export { ErrorState } from './ErrorState';
+export { PillSelector } from './PillSelector';
+export type { PillOption } from './PillSelector';

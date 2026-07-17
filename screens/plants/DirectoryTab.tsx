@@ -18,7 +18,7 @@ import jpeg from 'jpeg-js';
 import { File } from 'expo-file-system';
 import { colors, spacing, radius, fontSize, fontWeight } from '../../src/constants/theme';
 import { useTranslation } from '../../src/constants/i18n';
-import { EmptyState } from '../../src/components/ui';
+import { EmptyState, ErrorState } from '../../src/components/ui';
 import { StageSelector, PrintLabelModal, QRScannerModal, PlantManagementModal } from '../../src/components/plants';
 import { usePlants, useRooms, useTransferPlant, useArchivePlant, useCreateActionLog } from '../../src/hooks';
 import { canPerform } from '../../src/lib/permissions';
@@ -309,7 +309,15 @@ export default function DirectoryTab({ isTh, operatorId, userRole }: DirectoryTa
       />
 
       {loading ? (
-        <ActivityIndicator size="large" color={colors.accent} style={{ marginVertical: 30 }} />
+        <ActivityIndicator size="large" color={colors.accent} style={styles.loadingIndicator} />
+      ) : plantsQuery.isError || roomsQuery.isError ? (
+        <ErrorState
+          message={((plantsQuery.error || roomsQuery.error) as Error)?.message}
+          onRetry={() => {
+            plantsQuery.refetch();
+            roomsQuery.refetch();
+          }}
+        />
       ) : filteredPlants.length === 0 ? (
         <EmptyState title={t('empty_list')} />
       ) : (
@@ -444,6 +452,9 @@ const styles = StyleSheet.create({
   scanBtnText: {
     fontSize: 20,
   },
+  loadingIndicator: {
+    marginVertical: spacing.xxl,
+  },
   plantList: {
     paddingBottom: 40,
   },
@@ -461,8 +472,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderBottomWidth: 1,
     borderBottomColor: colors.borderSubtle,
-    paddingBottom: 8,
-    marginBottom: 8,
+    paddingBottom: spacing.sm,
+    marginBottom: spacing.sm,
   },
   plantId: {
     color: colors.text,

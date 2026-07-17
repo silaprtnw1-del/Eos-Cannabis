@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, TextInput, Alert, ScrollView } from 'react-native';
 import { colors, spacing, radius, fontSize, fontWeight, commonStyles } from '../../src/constants/theme';
 import { useTranslation } from '../../src/constants/i18n';
-import { GlassCard, EmptyState } from '../../src/components/ui';
+import { GlassCard, EmptyState, ErrorState, PillSelector } from '../../src/components/ui';
 import { useRooms, useCreateRoom, useSoftDeleteRoom, useCreateActionLog } from '../../src/hooks';
 import { canPerform } from '../../src/lib/permissions';
 import type { Room, UserRole } from '../../src/types';
@@ -105,24 +105,16 @@ export default function RoomsTab({ isTh, operatorId, userRole }: RoomsTabProps) 
           />
         </View>
 
-        <View style={styles.inputContainerCompact}>
-          <Text style={commonStyles.inputLabel}>{t('plant_room_type')}</Text>
-          <View style={styles.roomTypeGrid}>
-            {(['CLONING', 'VEG', 'FLOWER', 'DRYING', 'CURING', 'PACKAGING'] as const).map(tType => (
-              <TouchableOpacity
-                key={tType}
-                style={[styles.typeBtn, newRoomType === tType && styles.typeBtnActive]}
-                onPress={() => setNewRoomType(tType)}
-                accessibilityRole="button"
-                accessibilityLabel={`Room type ${tType}`}
-              >
-                <Text style={[styles.typeBtnText, newRoomType === tType && styles.typeBtnTextActive]}>
-                  {tType}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
+        <PillSelector
+          label={t('plant_room_type')}
+          wrap
+          options={(['CLONING', 'VEG', 'FLOWER', 'DRYING', 'CURING', 'PACKAGING'] as const).map((tType) => ({
+            value: tType,
+            label: tType,
+          }))}
+          selectedValue={newRoomType}
+          onChange={(v) => setNewRoomType(v as Room['type'])}
+        />
 
         <TouchableOpacity
           style={styles.submitBtn}
@@ -137,10 +129,10 @@ export default function RoomsTab({ isTh, operatorId, userRole }: RoomsTabProps) 
         </TouchableOpacity>
       </GlassCard>
 
-      <View style={{ height: 20 }} />
-
       <GlassCard title={isTh ? '📍 รายชื่อห้องปลูกที่ใช้งานอยู่' : '📍 Active Grow Rooms'}>
-        {rooms.length === 0 ? (
+        {roomsQuery.isError ? (
+          <ErrorState message={(roomsQuery.error as Error)?.message} onRetry={() => roomsQuery.refetch()} />
+        ) : rooms.length === 0 ? (
           <EmptyState title={t('empty_list')} />
         ) : (
           rooms.map((room) => (
@@ -185,37 +177,6 @@ const styles = StyleSheet.create({
     color: colors.accent,
     fontSize: 15,
     fontWeight: fontWeight.bold,
-  },
-  inputContainerCompact: {
-    marginBottom: spacing.lg,
-  },
-  roomTypeGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.xs,
-    marginTop: spacing.xs,
-  },
-  typeBtn: {
-    flex: 1,
-    minWidth: 90,
-    backgroundColor: colors.inputBg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    paddingVertical: 10,
-    alignItems: 'center',
-  },
-  typeBtnActive: {
-    backgroundColor: colors.accentDim,
-    borderColor: colors.accent,
-  },
-  typeBtnText: {
-    color: colors.textMuted,
-    fontSize: fontSize.xs,
-    fontWeight: fontWeight.bold,
-  },
-  typeBtnTextActive: {
-    color: colors.accent,
   },
   roomRow: {
     flexDirection: 'row',
