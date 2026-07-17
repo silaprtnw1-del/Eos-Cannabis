@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
@@ -19,7 +19,6 @@ import jsQR from 'jsqr';
 // @ts-ignore
 import jpeg from 'jpeg-js';
 import { File } from 'expo-file-system';
-import { supabase } from '../supabase';
 import { colors, spacing, radius, fontSize, fontWeight, commonStyles } from '../src/constants/theme';
 import { useTranslation } from '../src/constants/i18n';
 import { GlassCard, SubTabBar, EmptyState } from '../src/components/ui';
@@ -31,7 +30,18 @@ import {
   QRScannerModal,
   PlantManagementModal,
 } from '../src/components/plants';
-import type { Plant, Room, Batch, PlantStage, UserRole } from '../src/types';
+import {
+  usePlants,
+  useRooms,
+  useBatches,
+  useRegisterClones,
+  useTransferPlant,
+  useArchivePlant,
+  useCreateRoom,
+  useSoftDeleteRoom,
+  useCreateActionLog,
+} from '../src/hooks';
+import type { Plant, Room, PlantStage, UserRole } from '../src/types';
 
 
 interface PlantDirectoryScreenProps {
@@ -43,12 +53,21 @@ interface PlantDirectoryScreenProps {
 export default function PlantDirectoryScreen({ isTh, operatorId, userRole }: PlantDirectoryScreenProps) {
   const { t } = useTranslation(isTh);
   const [activeTab, setActiveTab] = useState<string>('directory');
-  const [loading, setLoading] = useState<boolean>(true);
 
-  // Data lists
-  const [plants, setPlants] = useState<Plant[]>([]);
-  const [rooms, setRooms] = useState<Room[]>([]);
-  const [batches, setBatches] = useState<Batch[]>([]);
+  const plantsQuery = usePlants();
+  const roomsQuery = useRooms();
+  const batchesQuery = useBatches();
+  const registerClones = useRegisterClones();
+  const transferPlant = useTransferPlant();
+  const archivePlant = useArchivePlant();
+  const createRoom = useCreateRoom();
+  const softDeleteRoom = useSoftDeleteRoom();
+  const createActionLog = useCreateActionLog();
+
+  const plants = plantsQuery.data ?? [];
+  const rooms = roomsQuery.data ?? [];
+  const batches = batchesQuery.data ?? [];
+  const loading = plantsQuery.isLoading || roomsQuery.isLoading || batchesQuery.isLoading;
 
   // Search & Filter
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -88,60 +107,20 @@ export default function PlantDirectoryScreen({ isTh, operatorId, userRole }: Pla
   const [printing, setPrinting] = useState<boolean>(false);
   const [scanningGallery, setScanningGallery] = useState<boolean>(false);
 
-  // Load plants, rooms, and batches
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const { data: plantsData } = await supabase
-        .from('plants')
-        .select('id, strainname, stage, roomname, plantedat, batchid')
-        .neq('stage', 'ARCHIVED')
-        .order('plantedat', { ascending: false });
-      
-      const { data: roomsData } = await supabase
-        .from('rooms')
-        .select('id, name, type')
-        .eq('is_active', true);
-
-      const { data: batchesData } = await supabase
-        .from('batches')
-        .select('id, name, strainname')
-        .eq('status', 'ACTIVE');
-
-      setPlants((plantsData as Plant[]) || []);
-      setRooms((roomsData as Room[]) || []);
-      setBatches((batchesData as Batch[]) || []);
-
-      if (roomsData && roomsData.length > 0) {
-        setInitialRoom(roomsData[0].name);
-        setImportRoom(roomsData[0].name);
-        setTargetRoom(roomsData[0].name);
-      }
-      if (batchesData && batchesData.length > 0) {
-        setSelectedImportBatchId(batchesData[0].id);
-      }
-    } catch (e) {
-      console.warn('Failed to load data:', e);
-    } finally {
-      setLoading(false);
+  // Auto-select first room/batch once loaded
+  useEffect(() => {
+    if (rooms.length > 0) {
+      if (!initialRoom) setInitialRoom(rooms[0].name);
+      if (!importRoom) setImportRoom(rooms[0].name);
+      if (!targetRoom) setTargetRoom(rooms[0].name);
     }
-  }, []);
+  }, [rooms, initialRoom, importRoom, targetRoom]);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
-
-  // Generate collision-resistant plant ID using crypto-random.
-  // 6 hex chars = 16M possibilities per acronym, far beyond Math.random()'s
-  // 4-char (65k) range that was colliding at scale.
-  const generatePlantId = (acronym: string) => {
-    const bytes = new Uint8Array(3);
-    crypto.getRandomValues(bytes);
-    const hex = Array.from(bytes)
-      .map((b) => b.toString(16).padStart(2, '0').toUpperCase())
-      .join('');
-    return `APN-${acronym.toUpperCase()}-${hex}`;
-  };
+    if (batches.length > 0 && !selectedImportBatchId) {
+      setSelectedImportBatchId(batches[0].id);
+    }
+  }, [batches, selectedImportBatchId]);
 
   // Plant registration (clones)
   const handleRegisterClones = async () => {
@@ -153,32 +132,18 @@ export default function PlantDirectoryScreen({ isTh, operatorId, userRole }: Pla
     setRegistering(true);
     try {
       const qty = parseInt(cloneQty, 10);
-      const insertedPlants: Omit<Plant, 'id'>[] = [];
-      const generatedIds: string[] = [];
 
-      for (let i = 0; i < qty; i++) {
-        const pId = generatePlantId(strainAcronym);
-        generatedIds.push(pId);
-        insertedPlants.push({
-          strainname: strainName.trim(),
-          stage: 'CLONE',
-          roomname: initialRoom,
-          plantedat: new Date().toISOString(),
-          batchid: null,
-        });
-      }
+      await registerClones.mutateAsync({
+        strainname: strainName.trim(),
+        strainAcronym: strainAcronym.trim(),
+        roomname: initialRoom,
+        batchid: null,
+        stage: 'CLONE',
+        count: qty,
+      });
 
-      // Supabase insert multiple plants
-      const payload = insertedPlants.map((p, idx) => ({
-        id: generatedIds[idx],
-        ...p,
-      }));
-
-      const { error } = await supabase.from('plants').insert(payload);
-      if (error) throw error;
-
-      // Log action for GACP audit trail
-      await supabase.from('action_logs').insert({
+      // Log action for GACP audit trail — no DB trigger covers REGISTER_CLONES
+      await createActionLog.mutateAsync({
         actiontype: 'REGISTER_CLONES',
         operatorid: operatorId,
         targettype: 'BATCH',
@@ -189,7 +154,6 @@ export default function PlantDirectoryScreen({ isTh, operatorId, userRole }: Pla
       Alert.alert(t('confirm'), t('plant_registered'));
       setStrainName('');
       setStrainAcronym('');
-      loadData();
     } catch (e: any) {
       Alert.alert(t('error'), e.message);
     } finally {
@@ -211,23 +175,18 @@ export default function PlantDirectoryScreen({ isTh, operatorId, userRole }: Pla
       if (!selectedBatch) throw new Error('Invalid Batch Selection');
 
       const acronym = selectedBatch.strainname.substring(0, 3).toUpperCase();
-      const payload = [];
 
-      for (let i = 0; i < qty; i++) {
-        payload.push({
-          id: generatePlantId(acronym),
-          strainname: selectedBatch.strainname,
-          stage: 'VEG',
-          roomname: importRoom,
-          batchid: selectedImportBatchId,
-          plantedat: new Date().toISOString(),
-        });
-      }
+      await registerClones.mutateAsync({
+        strainname: selectedBatch.strainname,
+        strainAcronym: acronym,
+        roomname: importRoom,
+        batchid: selectedImportBatchId,
+        stage: 'VEG',
+        count: qty,
+      });
 
-      const { error } = await supabase.from('plants').insert(payload);
-      if (error) throw error;
-
-      await supabase.from('action_logs').insert({
+      // No DB trigger covers IMPORT_PLANTS
+      await createActionLog.mutateAsync({
         actiontype: 'IMPORT_PLANTS',
         operatorid: operatorId,
         targettype: 'BATCH',
@@ -236,7 +195,6 @@ export default function PlantDirectoryScreen({ isTh, operatorId, userRole }: Pla
       });
 
       Alert.alert(t('confirm'), t('plant_import_success'));
-      loadData();
     } catch (e: any) {
       Alert.alert(t('error'), e.message);
     } finally {
@@ -253,15 +211,13 @@ export default function PlantDirectoryScreen({ isTh, operatorId, userRole }: Pla
 
     setCreatingRoom(true);
     try {
-      const { error } = await supabase.from('rooms').insert({
+      await createRoom.mutateAsync({
         name: newRoomName.trim(),
         type: newRoomType,
       });
 
-      if (error) throw error;
       Alert.alert(t('confirm'), t('plant_room_created'));
       setNewRoomName('');
-      loadData();
     } catch (e: any) {
       Alert.alert(t('error'), e.message);
     } finally {
@@ -279,18 +235,14 @@ export default function PlantDirectoryScreen({ isTh, operatorId, userRole }: Pla
 
     setUpdatingPlant(true);
     try {
-      const { error } = await supabase
-        .from('plants')
-        .update({
-          roomname: targetRoom,
-          stage: targetStage,
-        })
-        .eq('id', selectedPlant.id);
+      await transferPlant.mutateAsync({
+        plantId: selectedPlant.id,
+        updates: { roomname: targetRoom, stage: targetStage },
+      });
 
-      if (error) throw error;
-
-      // Log audit trail
-      await supabase.from('action_logs').insert({
+      // No DB trigger covers plant transfers (verified in Step 0) — this
+      // manual audit log insert is the only record of it.
+      await createActionLog.mutateAsync({
         actiontype: 'TRANSFER_PLANT',
         operatorid: operatorId,
         targettype: 'PLANT',
@@ -307,7 +259,6 @@ export default function PlantDirectoryScreen({ isTh, operatorId, userRole }: Pla
       Alert.alert(t('confirm'), t('plant_transferred'));
       setManageModalVisible(false);
       setSelectedPlant(null);
-      loadData();
     } catch (e: any) {
       Alert.alert(t('error'), e.message);
     } finally {
@@ -334,15 +285,11 @@ export default function PlantDirectoryScreen({ isTh, operatorId, userRole }: Pla
           onPress: async () => {
             setUpdatingPlant(true);
             try {
-              const { error } = await supabase
-                .from('plants')
-                .update({ stage: 'ARCHIVED' })
-                .eq('id', selectedPlant.id);
+              await archivePlant.mutateAsync(selectedPlant.id);
 
-              if (error) throw error;
-
-              // Log audit trail
-              await supabase.from('action_logs').insert({
+              // No DB trigger covers plant archiving (verified in Step 0) —
+              // this manual audit log insert is the only record of it.
+              await createActionLog.mutateAsync({
                 actiontype: 'ARCHIVE_PLANT',
                 operatorid: operatorId,
                 targettype: 'PLANT',
@@ -357,7 +304,6 @@ export default function PlantDirectoryScreen({ isTh, operatorId, userRole }: Pla
               Alert.alert(t('confirm'), isTh ? 'เก็บถาวรต้นไม้สำเร็จ' : 'Plant archived successfully');
               setManageModalVisible(false);
               setSelectedPlant(null);
-              loadData();
             } catch (e: any) {
               Alert.alert(t('error'), e.message);
             } finally {
@@ -386,15 +332,11 @@ export default function PlantDirectoryScreen({ isTh, operatorId, userRole }: Pla
           style: 'destructive',
           onPress: async () => {
             try {
-              const { error } = await supabase
-                .from('rooms')
-                .update({ is_active: false })
-                .eq('id', roomId);
+              await softDeleteRoom.mutateAsync(roomId);
 
-              if (error) throw error;
-
-              // Log action
-              await supabase.from('action_logs').insert({
+              // No DB trigger covers room deletion (verified in Step 0) —
+              // this manual audit log insert is the only record of it.
+              await createActionLog.mutateAsync({
                 actiontype: 'DELETE_ROOM',
                 operatorid: operatorId,
                 targettype: 'ROOM',
@@ -403,7 +345,6 @@ export default function PlantDirectoryScreen({ isTh, operatorId, userRole }: Pla
               });
 
               Alert.alert(t('confirm'), isTh ? 'ลบห้องปลูกสำเร็จ' : 'Grow room deleted successfully');
-              loadData();
             } catch (e: any) {
               Alert.alert(t('error'), e.message);
             }

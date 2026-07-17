@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   StyleSheet,
   Text,
@@ -11,15 +11,14 @@ import {
   KeyboardAvoidingView,
   Platform,
   RefreshControl,
-  FlatList,
 } from 'react-native';
-import { supabase } from '../supabase';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { colors, spacing, radius, fontSize, fontWeight, commonStyles } from '../src/constants/theme';
 import { useTranslation } from '../src/constants/i18n';
 import { GlassCard, SubTabBar, EmptyState } from '../src/components/ui';
-import type { ChecklistLog, CultivationLog, UserRole } from '../src/types';
+import { useChecklistsHistory, useCultivationLogs, useUpsertChecklist } from '../src/hooks';
+import type { UserRole } from '../src/types';
 
 interface SopLogsScreenProps {
   isTh: boolean;
@@ -30,9 +29,15 @@ interface SopLogsScreenProps {
 export default function SopLogsScreen({ isTh, operatorId, userRole }: SopLogsScreenProps) {
   const { t } = useTranslation(isTh);
   const [activeTab, setActiveTab] = useState<string>('checklist');
-  const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [saveStatus, setSaveStatus] = useState<string>('');
+
+  const checklistsQuery = useChecklistsHistory(15);
+  const logsQuery = useCultivationLogs(15);
+  const upsertChecklist = useUpsertChecklist();
+  const checklistsHistory = checklistsQuery.data ?? [];
+  const irrigationLogs = logsQuery.data ?? [];
+  const loading = checklistsQuery.isLoading || logsQuery.isLoading;
 
   // Daily Tasks
   const [tasks, setTasks] = useState<Record<string, boolean>>({
@@ -56,79 +61,21 @@ export default function SopLogsScreen({ isTh, operatorId, userRole }: SopLogsScr
   const [incidentDetails, setIncidentDetails] = useState<string>('');
   const [correctiveAction, setCorrectiveAction] = useState<string>('');
 
-  // History logs
-  const [checklistsHistory, setChecklistsHistory] = useState<ChecklistLog[]>([]);
-  const [irrigationLogs, setIrrigationLogs] = useState<CultivationLog[]>([]);
-
-
-
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const fetchHistoryData = useCallback(async (isSilent = false) => {
-    if (!isSilent) {
-      setLoading(true);
-    }
-    try {
-      const { data: checklists, error: checkError } = await supabase
-        .from('gacp_compliance_checklists')
-        .select('*')
-        .order('checkdate', { ascending: false })
-        .limit(15);
-      
-      if (!checkError && checklists) {
-        setChecklistsHistory(
-          checklists.map((c: any) => ({
-            id: c.id,
-            checkdate: c.checkdate,
-            tasks: c.tasks,
-            haspestincident: c.haspestincident,
-            incidentdetails: c.incidentdetails,
-            correctiveaction: c.correctiveaction,
-          }))
-        );
-      }
-
-      const { data: irriLogs, error: irriError } = await supabase
-        .from('cultivation_logs')
-        .select('id, logdate, roomname, watervolume, phin, ecin, phout, ecout')
-        .order('logdate', { ascending: false })
-        .limit(15);
-      
-      if (!irriError && irriLogs) {
-        setIrrigationLogs(
-          irriLogs.map((l: any) => ({
-            id: l.id,
-            logdate: l.logdate,
-            roomname: l.roomname,
-            watervolume: l.watervolume,
-            phin: l.phin,
-            ecin: l.ecin,
-            phout: l.phout,
-            ecout: l.ecout,
-          }))
-        );
-      }
-    } catch (e) {
-      console.warn('Failed to load history logs:', e);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
-
-  const onRefresh = useCallback(() => {
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    fetchHistoryData(true);
-  }, [fetchHistoryData]);
+    await Promise.all([checklistsQuery.refetch(), logsQuery.refetch()]);
+    setRefreshing(false);
+  }, [checklistsQuery, logsQuery]);
 
   useEffect(() => {
-    fetchHistoryData();
     return () => {
       if (timerRef.current) {
         clearTimeout(timerRef.current);
       }
     };
-  }, [fetchHistoryData]);
+  }, []);
 
   const handleToggleTask = (taskKey: string) => {
     setTasks(prev => ({ ...prev, [taskKey]: !prev[taskKey] }));
@@ -138,23 +85,19 @@ export default function SopLogsScreen({ isTh, operatorId, userRole }: SopLogsScr
     setSaveStatus('Saving...');
     try {
       const today = new Date().toISOString().split('T')[0];
-      
-      const { error } = await supabase
-        .from('gacp_compliance_checklists')
-        .upsert({
-          checkdate: today,
-          operatorid: operatorId,
-          tasks: tasks,
-          haspestincident: hasPestIncident,
-          incidentdetails: hasPestIncident ? incidentDetails : null,
-          correctiveaction: hasPestIncident ? correctiveAction : null,
-          // audittrail is appended by a BEFORE INSERT/UPDATE trigger
-          // (security_migration.sql). Do not send it from the client.
-        }, { onConflict: 'checkdate' });
 
-      if (error) throw error;
-      setSaveStatus(t('saved_success'));
-      fetchHistoryData(true);
+      const { queued } = await upsertChecklist.mutateAsync({
+        checkdate: today,
+        operatorid: operatorId,
+        tasks: tasks,
+        haspestincident: hasPestIncident,
+        incidentdetails: hasPestIncident ? incidentDetails : null,
+        correctiveaction: hasPestIncident ? correctiveAction : null,
+      });
+
+      setSaveStatus(
+        queued ? (isTh ? '📥 บันทึกในเครื่อง — จะซิงค์เมื่อออนไลน์' : '📥 Saved locally — will sync when online') : t('saved_success')
+      );
     } catch (e: any) {
       setSaveStatus(t('saved_failed'));
       console.warn('Save checklist error:', e.message);

@@ -2,6 +2,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useAuthStore } from '../../stores/authStore';
 import { useI18nStore } from '../../stores/i18nStore';
 import { useConnectionStore } from '../../stores/connectionStore';
+import { useSyncStatus } from '../../hooks/useSyncStatus';
 import { colors, spacing, radius, fontSize, fontWeight } from '../../constants/theme';
 
 export function AppHeader() {
@@ -11,6 +12,7 @@ export function AppHeader() {
   const isTh = useI18nStore((s) => s.isTh);
   const toggleLang = useI18nStore((s) => s.toggle);
   const dbStatus = useConnectionStore((s) => s.status);
+  const { data: pendingSync } = useSyncStatus();
 
   const statusColor =
     dbStatus === 'connected' ? colors.accent : dbStatus === 'error' ? colors.danger : colors.warning;
@@ -28,6 +30,13 @@ export function AppHeader() {
           </Text>
         </View>
         <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
+        {!!pendingSync && (
+          <View style={styles.syncBadge}>
+            <Text style={styles.syncBadgeText}>
+              {isTh ? `รอซิงค์ ${pendingSync}` : `${pendingSync} pending sync`}
+            </Text>
+          </View>
+        )}
       </View>
 
       <View style={styles.headerRight}>
@@ -88,6 +97,20 @@ const styles = StyleSheet.create({
     borderRadius: 3,
     marginLeft: spacing.sm,
     alignSelf: 'center',
+  },
+  syncBadge: {
+    backgroundColor: 'rgba(255, 193, 7, 0.15)',
+    borderWidth: 1,
+    borderColor: colors.warning,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    marginLeft: spacing.sm,
+  },
+  syncBadgeText: {
+    color: colors.warning,
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.bold,
   },
   langToggle: {
     backgroundColor: 'rgba(255, 255, 255, 0.05)',

@@ -3,11 +3,13 @@ import { View, ActivityIndicator, Text, StyleSheet } from 'react-native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { QueryClientProvider } from '@tanstack/react-query';
 
 import { initLocalDb } from '../localDb';
 import { useAuthStore } from '../src/stores/authStore';
-import { useConnectionStore } from '../src/stores/connectionStore';
+import { useConnectionStore, startNetworkWatcher } from '../src/stores/connectionStore';
 import { colors, spacing, fontSize, fontWeight } from '../src/constants/theme';
+import { queryClient } from '../src/lib/queryClient';
 
 export default function RootLayout() {
   const loading = useAuthStore((s) => s.loading);
@@ -17,17 +19,21 @@ export default function RootLayout() {
 
   useEffect(() => {
     let cleanup: (() => void) | undefined;
+    const netWatcher = startNetworkWatcher();
     (async () => {
       try {
         await initLocalDb();
       } catch (e) {
         console.warn('Failed to init local sqlite:', e);
       }
-      await checkConnection();
+      await checkConnection(); // also drains any queued offline writes
       cleanup = await init();
       setBootstrapped(true);
     })();
-    return () => cleanup?.();
+    return () => {
+      cleanup?.();
+      netWatcher();
+    };
   }, [init, checkConnection]);
 
   if (!bootstrapped || loading) {
@@ -40,13 +46,15 @@ export default function RootLayout() {
   }
 
   return (
-    <SafeAreaProvider>
-      <StatusBar style="light" />
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
-        <Stack.Screen name="login" />
-        <Stack.Screen name="(tabs)" />
-      </Stack>
-    </SafeAreaProvider>
+    <QueryClientProvider client={queryClient}>
+      <SafeAreaProvider>
+        <StatusBar style="light" />
+        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
+          <Stack.Screen name="login" />
+          <Stack.Screen name="(tabs)" />
+        </Stack>
+      </SafeAreaProvider>
+    </QueryClientProvider>
   );
 }
 

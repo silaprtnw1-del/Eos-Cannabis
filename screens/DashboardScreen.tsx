@@ -1,10 +1,10 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
-import { supabase } from '../supabase';
 import { colors, spacing, radius, fontSize, fontWeight } from '../src/constants/theme';
 import { useTranslation } from '../src/constants/i18n';
 import { GlassCard, ErrorState } from '../src/components/ui';
-import type { ClimateMetric, ScreenName } from '../src/types';
+import type { ScreenName } from '../src/types';
+import { useDashboardStats, useLatestClimates } from '../src/hooks';
 
 interface DashboardScreenProps {
   isTh: boolean;
@@ -13,119 +13,33 @@ interface DashboardScreenProps {
 
 export default function DashboardScreen({ isTh, onNavigate }: DashboardScreenProps) {
   const { t } = useTranslation(isTh);
-  const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
-  const [error, setError] = useState<string>('');
 
-  // Count states from plants table
-  const [cloneCount, setCloneCount] = useState<number>(0);
-  const [vegCount, setVegCount] = useState<number>(0);
-  const [flowerCount, setFlowerCount] = useState<number>(0);
+  const stats = useDashboardStats();
+  const climatesQuery = useLatestClimates();
+  const climates = climatesQuery.data ?? [];
+  const loading = stats.loading || climatesQuery.isLoading;
+  const error = stats.error || (climatesQuery.error ? climatesQuery.error.message : '');
 
-  // Compliance Rate of today
-  const [complianceRate, setComplianceRate] = useState<number>(0);
-  const [totalTasks, setTotalTasks] = useState<number>(5);
-  const [completedTasks, setCompletedTasks] = useState<number>(0);
+  const { cloneCount, vegCount, flowerCount, complianceRate, totalTasks, completedTasks } = stats;
 
-  // Climate data
-  const [climates, setClimates] = useState<ClimateMetric[]>([]);
+  const refetchAll = useCallback(() => {
+    stats.refetch();
+    climatesQuery.refetch();
+  }, [stats, climatesQuery]);
 
-  const fetchDashboardData = useCallback(async (isSilent = false) => {
-    if (!isSilent) {
-      setLoading(true);
-    }
-    setError('');
-    try {
-      // 1. Fetch plants counts by stage
-      const { data: plants, error: plantsError } = await supabase
-        .from('plants')
-        .select('stage');
-
-      if (plantsError) throw plantsError;
-
-      let clones = 0;
-      let vegs = 0;
-      let flowers = 0;
-
-      (plants || []).forEach((p) => {
-        if (p.stage === 'CLONE') clones++;
-        else if (p.stage === 'VEG') vegs++;
-        else if (p.stage === 'FLOWER') flowers++;
-      });
-
-      setCloneCount(clones);
-      setVegCount(vegs);
-      setFlowerCount(flowers);
-
-      // 2. Fetch today's GACP Compliance Checklist (using lowercase checkdate)
-      const today = new Date().toISOString().split('T')[0];
-      const { data: checklist, error: checkError } = await supabase
-        .from('gacp_compliance_checklists')
-        .select('tasks')
-        .eq('checkdate', today)
-        .maybeSingle();
-
-      if (checkError) throw checkError;
-
-      if (checklist && checklist.tasks) {
-        const tasksObj = checklist.tasks as Record<string, boolean>;
-        const keys = Object.keys(tasksObj);
-        const completed = keys.filter((k) => tasksObj[k]).length;
-        setTotalTasks(keys.length || 5);
-        setCompletedTasks(completed);
-        setComplianceRate(keys.length > 0 ? Math.round((completed / keys.length) * 100) : 0);
-      } else {
-        setComplianceRate(0);
-        setCompletedTasks(0);
-        setTotalTasks(5);
-      }
-
-      // 3. Fetch latest environmental log for Cloning, Veg, Flower rooms (using lowercase columns)
-      const { data: envLogs, error: envError } = await supabase
-        .from('environmental_logs')
-        .select('roomname, tempc, humidityrh, vpd')
-        .order('recordedat', { ascending: false });
-
-      if (envError) throw envError;
-
-      // Group by roomname and get the most recent one
-      const latestRooms: Record<string, ClimateMetric> = {};
-      (envLogs || []).forEach((log) => {
-        if (!latestRooms[log.roomname]) {
-          latestRooms[log.roomname] = {
-            roomname: log.roomname,
-            tempc: log.tempc,
-            humidityrh: log.humidityrh,
-            vpd: log.vpd || 0,
-          };
-        }
-      });
-
-      setClimates(Object.values(latestRooms));
-    } catch (e: any) {
-      console.warn('Dashboard Fetch Error:', e.message);
-      setError(e.message);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
-
-  const onRefresh = useCallback(() => {
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    fetchDashboardData(true);
-  }, [fetchDashboardData]);
-
-  useEffect(() => {
-    fetchDashboardData();
-  }, [fetchDashboardData]);
+    refetchAll();
+    setRefreshing(false);
+  }, [refetchAll]);
 
   if (error && !refreshing) {
     return (
       <View style={styles.errorContainer}>
         <ErrorState
           message={error}
-          onRetry={() => fetchDashboardData(false)}
+          onRetry={refetchAll}
           retryLabel={t('retry')}
         />
       </View>

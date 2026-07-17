@@ -1,3 +1,4 @@
+import { eq } from 'drizzle-orm';
 import { sqliteTable, text, real, integer } from 'drizzle-orm/sqlite-core';
 import { drizzle } from 'drizzle-orm/expo-sqlite';
 import { openDatabaseSync } from 'expo-sqlite';
@@ -72,4 +73,43 @@ export const initLocalDb = () => {
       synced INTEGER DEFAULT 0 NOT NULL
     );
   `);
+};
+
+export const genLocalId = () => `local-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
+export type LocalCultivationLog = typeof localCultivationLogs.$inferSelect;
+export type LocalGacpChecklist = typeof localGacpChecklists.$inferSelect;
+
+export const insertLocalCultivationLog = (row: typeof localCultivationLogs.$inferInsert) =>
+  localDb.insert(localCultivationLogs).values(row);
+
+export const insertLocalGacpChecklist = (row: typeof localGacpChecklists.$inferInsert) =>
+  localDb.insert(localGacpChecklists).values(row);
+
+export const getUnsyncedCultivationLogs = () =>
+  localDb
+    .select()
+    .from(localCultivationLogs)
+    .where(eq(localCultivationLogs.synced, false))
+    .orderBy(localCultivationLogs.id);
+
+export const getUnsyncedGacpChecklists = () =>
+  localDb
+    .select()
+    .from(localGacpChecklists)
+    .where(eq(localGacpChecklists.synced, false))
+    .orderBy(localGacpChecklists.id);
+
+export const deleteLocalCultivationLog = (id: string) =>
+  localDb.delete(localCultivationLogs).where(eq(localCultivationLogs.id, id));
+
+export const deleteLocalGacpChecklist = (id: string) =>
+  localDb.delete(localGacpChecklists).where(eq(localGacpChecklists.id, id));
+
+export const countPendingSync = async () => {
+  const [logs, checklists] = await Promise.all([
+    getUnsyncedCultivationLogs(),
+    getUnsyncedGacpChecklists(),
+  ]);
+  return logs.length + checklists.length;
 };
