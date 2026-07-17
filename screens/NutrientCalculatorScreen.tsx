@@ -32,6 +32,7 @@ export default function NutrientCalculatorScreen({ isTh, operatorId }: NutrientC
   const [rooms, setRooms] = useState<Room[]>([]);
   const [loadingBatches, setLoadingBatches] = useState<boolean>(true);
   const [loadingRooms, setLoadingRooms] = useState<boolean>(true);
+  const [loadError, setLoadError] = useState<string>('');
 
   // Form Inputs - Single state string values to avoid paired state drift
   const [selectedBatchId, setSelectedBatchId] = useState<string>('');
@@ -89,23 +90,14 @@ export default function NutrientCalculatorScreen({ isTh, operatorId }: NutrientC
             setRoomName(rData[0].name);
           }
         }
-      } catch (e) {
+      } catch (e: any) {
         console.warn('Failed to fetch initial data from Supabase:', e);
         if (active) {
-          const mockBatches = [
-            { id: 'BATCH-2026-W25-SBC', name: 'Super Buff Cherry Bloom #1', strainname: 'Super Buff Cherry #23' },
-            { id: 'BATCH-2026-W26-MNT', name: 'Menthol Veg Stage #2', strainname: 'The Menthol' },
-          ];
-          setBatches(mockBatches);
-          setSelectedBatchId(mockBatches[0].id);
-
-          const mockRooms = [
-            { id: '1', name: 'Cloning Dome A', type: 'CLONING' },
-            { id: '2', name: 'Veg Room B', type: 'VEG' },
-            { id: '3', name: 'Flower Room 1', type: 'FLOWER' },
-          ];
-          setRooms(mockRooms as Room[]);
-          setRoomName(mockRooms[2].name); // Default to Flower Room 1
+          setLoadError(
+            isTh
+              ? 'ไม่สามารถเชื่อมต่อระบบ กรุณาตรวจสอบเครือข่ายและลองอีกครั้ง'
+              : 'Unable to connect. Check your network and try again.'
+          );
         }
       } finally {
         if (active) {
@@ -255,6 +247,50 @@ export default function NutrientCalculatorScreen({ isTh, operatorId }: NutrientC
       style={styles.keyboardAvoid}
     >
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+        {loadError ? (
+          <View style={styles.errorBanner}>
+            <Text style={styles.errorBannerText}>{loadError}</Text>
+            <TouchableOpacity
+              style={styles.retryBtn}
+              onPress={() => {
+                setLoadError('');
+                setLoadingBatches(true);
+                setLoadingRooms(true);
+                // Re-trigger the effect by re-mounting via key change isn't trivial here;
+                // simplest: reload batches/rooms inline.
+                const reload = async () => {
+                  try {
+                    const { data: bData } = await supabase
+                      .from('batches')
+                      .select('id, name, strainname')
+                      .eq('status', 'ACTIVE');
+                    const { data: rData } = await supabase
+                      .from('rooms')
+                      .select('id, name, type')
+                      .eq('is_active', true);
+                    setBatches(bData || []);
+                    if (bData && bData.length > 0) setSelectedBatchId(bData[0].id);
+                    setRooms(rData || []);
+                    if (rData && rData.length > 0) setRoomName(rData[0].name);
+                  } catch (err) {
+                    setLoadError(
+                      isTh ? 'ยังเชื่อมต่อไม่ได้' : 'Still unable to connect.'
+                    );
+                  } finally {
+                    setLoadingBatches(false);
+                    setLoadingRooms(false);
+                  }
+                };
+                reload();
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={t('retry')}
+            >
+              <Text style={styles.retryBtnText}>{t('retry')}</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
+
         {/* Batch and Room Input */}
         <GlassCard title={t('nutri_batches_rooms')}>
           {loadingBatches ? (
@@ -636,6 +672,33 @@ const styles = StyleSheet.create({
   logBtnText: {
     color: colors.accent,
     fontSize: 15,
+    fontWeight: fontWeight.bold,
+  },
+  errorBanner: {
+    backgroundColor: colors.dangerDim,
+    borderWidth: 1,
+    borderColor: colors.danger,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
+    alignItems: 'center',
+  },
+  errorBannerText: {
+    color: colors.danger,
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.bold,
+    textAlign: 'center',
+    marginBottom: spacing.md,
+  },
+  retryBtn: {
+    backgroundColor: colors.danger,
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+  },
+  retryBtnText: {
+    color: colors.textOnAccent,
+    fontSize: fontSize.body,
     fontWeight: fontWeight.bold,
   },
 });

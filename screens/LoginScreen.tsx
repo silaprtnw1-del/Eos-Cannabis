@@ -14,6 +14,7 @@ import {
 import { supabase } from '../supabase';
 import { colors, spacing, radius, fontSize, fontWeight } from '../src/constants/theme';
 import { useTranslation } from '../src/constants/i18n';
+import { sanitizeAuthError } from '../src/constants/errors';
 import type { Session } from '../src/types';
 
 interface LoginScreenProps {
@@ -26,7 +27,7 @@ export default function LoginScreen({ isTh, onLoginSuccess }: LoginScreenProps) 
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
-  
+
   const passwordInputRef = useRef<TextInput>(null);
 
   const handleSignIn = async () => {
@@ -40,7 +41,7 @@ export default function LoginScreen({ isTh, onLoginSuccess }: LoginScreenProps) 
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email: trimmedEmail,
-        password: password,
+        password,
       });
 
       if (error) throw error;
@@ -48,35 +49,37 @@ export default function LoginScreen({ isTh, onLoginSuccess }: LoginScreenProps) 
         await fetchUserRoleAndProceed(data.session);
       }
     } catch (e: any) {
-      Alert.alert(t('login_auth_error'), e.message);
+      Alert.alert(t('login_auth_error'), sanitizeAuthError(e, isTh));
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSubmit = () => {
-    handleSignIn();
-  };
-
   const fetchUserRoleAndProceed = async (session: Session) => {
     try {
       const { user } = session;
-      let { data: profile, error } = await supabase
+      const { data: profile, error } = await supabase
         .from('users')
         .select('role, fullname')
         .eq('id', user.id)
         .single();
-      
+
       if (error || !profile) {
-        profile = {
-          role: user.user_metadata?.role || 'OPERATOR',
-          fullname: user.user_metadata?.fullName || 'Operator',
-        };
+        // RLS denied or row missing — refuse rather than trust client-supplied metadata.
+        await supabase.auth.signOut();
+        Alert.alert(
+          t('login_auth_error'),
+          isTh
+            ? 'ไม่พบบัญชีพนักงานในระบบ กรุณาติดต่อผู้ดูแล'
+            : 'Operator profile not found. Contact an administrator.'
+        );
+        return;
       }
 
       onLoginSuccess(session, profile.role, profile.fullname);
     } catch (err) {
-      onLoginSuccess(session, 'OPERATOR', 'Operator');
+      await supabase.auth.signOut();
+      Alert.alert(t('login_auth_error'), sanitizeAuthError(err, isTh));
     }
   };
 
@@ -92,13 +95,9 @@ export default function LoginScreen({ isTh, onLoginSuccess }: LoginScreenProps) 
       >
         <View style={styles.glassCard} accessibilityRole="none">
           <Text style={styles.brandTitle} accessibilityRole="header">APN CANNABIS</Text>
-          <Text style={styles.brandSubtitle}>
-            {t('login_brand')}
-          </Text>
+          <Text style={styles.brandSubtitle}>{t('login_brand')}</Text>
 
-          <Text style={styles.formTitle}>
-            {isSignUp ? (isTh ? 'ลงทะเบียนผู้ใช้งาน' : 'Register Account') : t('login_title')}
-          </Text>
+          <Text style={styles.formTitle}>{t('login_title')}</Text>
 
           <View style={styles.inputContainer}>
             <Text style={styles.inputLabel}>{t('login_email_label')}</Text>
@@ -108,58 +107,16 @@ export default function LoginScreen({ isTh, onLoginSuccess }: LoginScreenProps) 
               onChangeText={setEmail}
               keyboardType="email-address"
               autoCapitalize="none"
+              autoComplete="username"
               placeholder="email@apn-farm.com"
               placeholderTextColor={colors.textMuted}
               returnKeyType="next"
-              onSubmitEditing={() => {
-                if (isSignUp) {
-                  fullNameInputRef.current?.focus();
-                } else {
-                  passwordInputRef.current?.focus();
-                }
-              }}
+              onSubmitEditing={() => passwordInputRef.current?.focus()}
               blurOnSubmit={false}
               accessibilityLabel={t('login_email_label')}
               accessibilityHint="Enter your employee email address"
             />
           </View>
-
-          {isSignUp && (
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>{isTh ? 'ชื่อ-นามสกุล' : 'Full Name'}</Text>
-              <TextInput
-                ref={fullNameInputRef}
-                style={styles.textInput}
-                value={fullName}
-                onChangeText={setFullName}
-                placeholder={isTh ? 'สมชาย ใจดี' : 'John Doe'}
-                placeholderTextColor={colors.textMuted}
-                returnKeyType="next"
-                onSubmitEditing={() => phoneInputRef.current?.focus()}
-                blurOnSubmit={false}
-                accessibilityLabel="Full name input"
-              />
-            </View>
-          )}
-
-          {isSignUp && (
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>{isTh ? 'เบอร์โทรศัพท์ (ไม่ซ้ำ)' : 'Phone Number (Unique)'}</Text>
-              <TextInput
-                ref={phoneInputRef}
-                style={styles.textInput}
-                value={phone}
-                onChangeText={setPhone}
-                keyboardType="phone-pad"
-                placeholder="0812345678"
-                placeholderTextColor={colors.textMuted}
-                returnKeyType="next"
-                onSubmitEditing={() => passwordInputRef.current?.focus()}
-                blurOnSubmit={false}
-                accessibilityLabel="Phone number input"
-              />
-            </View>
-          )}
 
           <View style={styles.inputContainer}>
             <Text style={styles.inputLabel}>{t('login_password_label')}</Text>
@@ -169,10 +126,11 @@ export default function LoginScreen({ isTh, onLoginSuccess }: LoginScreenProps) 
               value={password}
               onChangeText={setPassword}
               secureTextEntry
+              autoComplete="password"
               placeholder="••••••••"
               placeholderTextColor={colors.textMuted}
               returnKeyType="done"
-              onSubmitEditing={handleSubmit}
+              onSubmitEditing={handleSignIn}
               accessibilityLabel={t('login_password_label')}
               accessibilityHint="Enter your password"
             />
@@ -180,38 +138,20 @@ export default function LoginScreen({ isTh, onLoginSuccess }: LoginScreenProps) 
 
           <TouchableOpacity
             style={styles.submitBtn}
-            onPress={handleSubmit}
+            onPress={handleSignIn}
             disabled={loading}
             accessibilityRole="button"
-            accessibilityLabel={isSignUp ? 'Register' : t('login_submit')}
+            accessibilityLabel={t('login_submit')}
             accessibilityState={{ disabled: loading }}
           >
             {loading ? (
               <ActivityIndicator size="small" color={colors.textOnAccent} />
             ) : (
-              <Text style={styles.submitBtnText}>
-                {isSignUp ? (isTh ? 'ลงทะเบียน' : 'Register') : t('login_submit')}
-              </Text>
+              <Text style={styles.submitBtnText}>{t('login_submit')}</Text>
             )}
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.toggleBtn}
-            onPress={() => setIsSignUp(!isSignUp)}
-            disabled={loading}
-            accessibilityRole="button"
-            accessibilityLabel="Toggle login signup mode"
-          >
-            <Text style={styles.toggleBtnText}>
-              {isSignUp
-                ? (isTh ? 'มีบัญชีอยู่แล้ว? เข้าสู่ระบบ' : 'Already have an account? Sign In')
-                : (isTh ? 'ลงทะเบียนผู้ใช้ใหม่ (Sign Up)' : 'Create New Account (Sign Up)')}
-            </Text>
-          </TouchableOpacity>
-
-          <Text style={styles.noteText}>
-            {t('login_restricted')}
-          </Text>
+          <Text style={styles.noteText}>{t('login_restricted')}</Text>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -304,15 +244,5 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: spacing.xl,
     lineHeight: 15,
-  },
-  toggleBtn: {
-    marginTop: spacing.xl,
-    paddingVertical: spacing.md,
-    alignItems: 'center',
-  },
-  toggleBtnText: {
-    color: colors.accent,
-    fontSize: fontSize.md,
-    fontWeight: fontWeight.bold,
   },
 });

@@ -14,7 +14,8 @@ import {
   FlatList,
 } from 'react-native';
 import { supabase } from '../supabase';
-import { createClient } from '@supabase/supabase-js';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 import { colors, spacing, radius, fontSize, fontWeight, commonStyles } from '../src/constants/theme';
 import { useTranslation } from '../src/constants/i18n';
 import { GlassCard, SubTabBar, EmptyState } from '../src/components/ui';
@@ -147,9 +148,8 @@ export default function SopLogsScreen({ isTh, operatorId, userRole }: SopLogsScr
           haspestincident: hasPestIncident,
           incidentdetails: hasPestIncident ? incidentDetails : null,
           correctiveaction: hasPestIncident ? correctiveAction : null,
-          audittrail: [
-            { timestamp: new Date().toISOString(), operator: operatorId, action: 'SUBMIT_DAILY_CHECKLIST' },
-          ],
+          // audittrail is appended by a BEFORE INSERT/UPDATE trigger
+          // (security_migration.sql). Do not send it from the client.
         }, { onConflict: 'checkdate' });
 
       if (error) throw error;
@@ -167,18 +167,64 @@ export default function SopLogsScreen({ isTh, operatorId, userRole }: SopLogsScr
   };
 
 
-  const handleExportCSV = () => {
-    let csvContent = 'Date,Operator,Tasks Completed,Total Tasks,Incident Alert,Details,Action Taken\n';
-    checklistsHistory.forEach(log => {
-      const completed = Object.values(log.tasks).filter(Boolean).length;
-      const total = Object.keys(log.tasks).length;
-      csvContent += `${log.checkdate},${operatorId},${completed},${total},${log.haspestincident ? 'YES' : 'NO'},"${log.incidentdetails || ''}","${log.correctiveaction || ''}"\n`;
-    });
+  const handleExportCSV = async () => {
+    if (checklistsHistory.length === 0) {
+      Alert.alert(
+        t('sop_export_csv'),
+        isTh ? 'ไม่มีบันทึกให้ส่งออก' : 'No records to export.'
+      );
+      return;
+    }
 
-    Alert.alert(
-      t('sop_export_csv'),
-      t('sop_csv_exported')
-    );
+    try {
+      const escapeCsv = (val: string | number | null | undefined) => {
+        const s = String(val ?? '');
+        if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+        return s;
+      };
+
+      const header = 'Date,Operator,Tasks Completed,Total Tasks,Incident Alert,Details,Action Taken';
+      const rows = checklistsHistory.map((log) => {
+        const completed = Object.values(log.tasks).filter(Boolean).length;
+        const total = Object.keys(log.tasks).length;
+        return [
+          log.checkdate,
+          operatorId,
+          completed,
+          total,
+          log.haspestincident ? 'YES' : 'NO',
+          log.incidentdetails || '',
+          log.correctiveaction || '',
+        ].map(escapeCsv).join(',');
+      });
+      const csv = [header, ...rows].join('\n');
+
+      const filename = `gacp_checklists_${new Date().toISOString().split('T')[0]}.csv`;
+      const fileUri = `${FileSystem.cacheDirectory}${filename}`;
+      await FileSystem.writeAsStringAsync(fileUri, csv, {
+        encoding: FileSystem.EncodingType.UTF8,
+      });
+
+      if (!(await Sharing.isAvailableAsync())) {
+        Alert.alert(
+          t('sop_export_csv'),
+          isTh ? 'อุปกรณ์นี้ไม่รองรับการแชร์ไฟล์' : 'Sharing is not available on this device.'
+        );
+        return;
+      }
+
+      await Sharing.shareAsync(fileUri, {
+        mimeType: 'text/csv',
+        dialogTitle: isTh ? 'ส่งออก CSV การตรวจสอบ GACP' : 'Export GACP Checklist CSV',
+        UTI: 'public.comma-separated-values-text',
+      });
+    } catch (e: any) {
+      console.warn('CSV export failed:', e);
+      Alert.alert(
+        t('sop_export_csv'),
+        isTh ? 'ไม่สามารถส่งออก CSV ได้' : 'Failed to export CSV.'
+      );
+    }
   };
 
   const tabs = [
