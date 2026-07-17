@@ -4,6 +4,7 @@ import { colors, spacing, radius, fontSize, fontWeight, commonStyles } from '../
 import { useTranslation } from '../../src/constants/i18n';
 import { GlassCard, EmptyState } from '../../src/components/ui';
 import { useRooms, useCreateRoom, useSoftDeleteRoom, useCreateActionLog } from '../../src/hooks';
+import { canPerform } from '../../src/lib/permissions';
 import type { Room, UserRole } from '../../src/types';
 
 interface RoomsTabProps {
@@ -25,6 +26,10 @@ export default function RoomsTab({ isTh, operatorId, userRole }: RoomsTabProps) 
   const [creatingRoom, setCreatingRoom] = useState<boolean>(false);
 
   const handleCreateRoom = async () => {
+    if (!canPerform(userRole, 'room:create')) {
+      Alert.alert(t('error'), t('permission_denied'));
+      return;
+    }
     if (!newRoomName.trim()) {
       Alert.alert(t('login_fill_fields'));
       return;
@@ -48,7 +53,7 @@ export default function RoomsTab({ isTh, operatorId, userRole }: RoomsTabProps) 
 
   // Soft-delete grow room (is_active = false)
   const handleSoftDeleteRoom = async (roomId: string) => {
-    if (userRole !== 'ADMIN') {
+    if (!canPerform(userRole, 'room:delete')) {
       Alert.alert(t('error'), t('plant_unauthorized'));
       return;
     }
@@ -144,7 +149,7 @@ export default function RoomsTab({ isTh, operatorId, userRole }: RoomsTabProps) 
                 <Text style={styles.roomNameText}>{room.name}</Text>
                 <Text style={styles.roomTypeText}>{room.type}</Text>
               </View>
-              {userRole === 'ADMIN' && (
+              {canPerform(userRole, 'room:delete') && (
                 <TouchableOpacity
                   style={styles.roomDeleteBtn}
                   onPress={() => handleSoftDeleteRoom(room.id)}

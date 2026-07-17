@@ -1,5 +1,5 @@
 import { supabase } from '../../supabase';
-import type { Plant } from '../types';
+import type { Plant, PlantSource } from '../types';
 import { Result, ok, err } from './result';
 import { generatePlantId } from '../domain/plantId';
 
@@ -10,6 +10,8 @@ export interface RegisterClonesInput {
   batchid: string | null;
   stage: Plant['stage'];
   count: number;
+  source?: PlantSource;
+  motherid?: string | null;
 }
 
 export interface TransferPlantInput {
@@ -24,6 +26,19 @@ export const plantsService = {
         .from('plants')
         .select('id, strainname, stage, roomname, plantedat, batchid')
         .neq('stage', 'ARCHIVED')
+        .order('plantedat', { ascending: false });
+      if (error) throw error;
+      return ok((data ?? []) as Plant[]);
+    } catch (e) {
+      return err(e);
+    }
+  },
+
+  async listAll(): Promise<Result<Plant[]>> {
+    try {
+      const { data, error } = await supabase
+        .from('plants')
+        .select('id, strainname, stage, roomname, plantedat, batchid, motherid, archivereason')
         .order('plantedat', { ascending: false });
       if (error) throw error;
       return ok((data ?? []) as Plant[]);
@@ -53,7 +68,9 @@ export const plantsService = {
         stage: input.stage,
         roomname: input.roomname,
         batchid: input.batchid,
+        motherid: input.motherid ?? null,
         plantedat: new Date().toISOString(),
+        metadata: input.source ? { source: input.source } : null,
       }));
       const { error } = await supabase.from('plants').insert(payload);
       if (error) throw error;
@@ -73,11 +90,11 @@ export const plantsService = {
     }
   },
 
-  async archive(plantId: string): Promise<Result<void>> {
+  async archive(plantId: string, archivereason?: string | null): Promise<Result<void>> {
     try {
       const { error } = await supabase
         .from('plants')
-        .update({ stage: 'ARCHIVED' })
+        .update({ stage: 'ARCHIVED', archivereason: archivereason ?? null })
         .eq('id', plantId);
       if (error) throw error;
       return ok(undefined);

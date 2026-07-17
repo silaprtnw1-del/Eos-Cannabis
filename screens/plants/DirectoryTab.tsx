@@ -21,6 +21,7 @@ import { useTranslation } from '../../src/constants/i18n';
 import { EmptyState } from '../../src/components/ui';
 import { StageSelector, PrintLabelModal, QRScannerModal, PlantManagementModal } from '../../src/components/plants';
 import { usePlants, useRooms, useTransferPlant, useArchivePlant, useCreateActionLog } from '../../src/hooks';
+import { canPerform } from '../../src/lib/permissions';
 import type { Plant, PlantStage, UserRole } from '../../src/types';
 
 interface DirectoryTabProps {
@@ -59,7 +60,7 @@ export default function DirectoryTab({ isTh, operatorId, userRole }: DirectoryTa
   // Perform plant transfer (location & stage change)
   const handleTransfer = async () => {
     if (!selectedPlant) return;
-    if (userRole !== 'ADMIN' && userRole !== 'SUPERVISOR') {
+    if (!canPerform(userRole, 'plant:transfer')) {
       Alert.alert(t('error'), t('plant_unauthorized'));
       return;
     }
@@ -100,8 +101,53 @@ export default function DirectoryTab({ isTh, operatorId, userRole }: DirectoryTa
   // Archive/Soft-delete plant entry (GACP audit trail friendly)
   const handleArchivePlant = async () => {
     if (!selectedPlant) return;
-    if (userRole !== 'ADMIN') {
+    if (!canPerform(userRole, 'plant:archive')) {
       Alert.alert(t('error'), t('plant_unauthorized'));
+      return;
+    }
+
+    const doArchive = async (archivereason: string | null) => {
+      setUpdatingPlant(true);
+      try {
+        await archivePlant.mutateAsync({ plantId: selectedPlant.id, archivereason });
+
+        // No DB trigger covers plant archiving (verified in Step 0) —
+        // this manual audit log insert is the only record of it.
+        await createActionLog.mutateAsync({
+          actiontype: 'ARCHIVE_PLANT',
+          operatorid: operatorId,
+          targettype: 'PLANT',
+          targetid: selectedPlant.id,
+          plantid: selectedPlant.id,
+          details: {
+            previous_stage: selectedPlant.stage,
+            previous_room: selectedPlant.roomname,
+            archive_reason: archivereason,
+          },
+        });
+
+        Alert.alert(t('confirm'), isTh ? 'เก็บถาวรต้นไม้สำเร็จ' : 'Plant archived successfully');
+        setManageModalVisible(false);
+        setSelectedPlant(null);
+      } catch (e: any) {
+        Alert.alert(t('error'), e.message);
+      } finally {
+        setUpdatingPlant(false);
+      }
+    };
+
+    // Only CLONE-stage archiving can be a "failed clone" — this is the only
+    // signal used to compute per-mother clone success rate.
+    if (selectedPlant.stage === 'CLONE') {
+      Alert.alert(
+        isTh ? 'ยืนยันการเก็บถาวรต้นไม้' : 'Confirm Archive Plant',
+        isTh ? 'กิ่งชำนี้ไม่รอด หรือเก็บถาวรด้วยเหตุผลอื่น?' : 'Was this clone a failure, or archiving for another reason?',
+        [
+          { text: isTh ? 'ยกเลิก' : 'Cancel', style: 'cancel' },
+          { text: t('plant_archive_failed_clone'), style: 'destructive', onPress: () => doArchive('FAILED_CLONE') },
+          { text: t('plant_archive_other'), style: 'destructive', onPress: () => doArchive(null) },
+        ]
+      );
       return;
     }
 
@@ -110,38 +156,7 @@ export default function DirectoryTab({ isTh, operatorId, userRole }: DirectoryTa
       isTh ? 'คุณต้องการย้ายต้นไม้นี้ไปยังการเก็บถาวร (Soft Delete) ใช่หรือไม่?' : 'Are you sure you want to move this plant to archives? (Soft Delete)',
       [
         { text: isTh ? 'ยกเลิก' : 'Cancel', style: 'cancel' },
-        {
-          text: isTh ? 'ยืนยัน' : 'Archive',
-          style: 'destructive',
-          onPress: async () => {
-            setUpdatingPlant(true);
-            try {
-              await archivePlant.mutateAsync(selectedPlant.id);
-
-              // No DB trigger covers plant archiving (verified in Step 0) —
-              // this manual audit log insert is the only record of it.
-              await createActionLog.mutateAsync({
-                actiontype: 'ARCHIVE_PLANT',
-                operatorid: operatorId,
-                targettype: 'PLANT',
-                targetid: selectedPlant.id,
-                plantid: selectedPlant.id,
-                details: {
-                  previous_stage: selectedPlant.stage,
-                  previous_room: selectedPlant.roomname,
-                },
-              });
-
-              Alert.alert(t('confirm'), isTh ? 'เก็บถาวรต้นไม้สำเร็จ' : 'Plant archived successfully');
-              setManageModalVisible(false);
-              setSelectedPlant(null);
-            } catch (e: any) {
-              Alert.alert(t('error'), e.message);
-            } finally {
-              setUpdatingPlant(false);
-            }
-          }
-        }
+        { text: isTh ? 'ยืนยัน' : 'Archive', style: 'destructive', onPress: () => doArchive(null) },
       ]
     );
   };

@@ -10,7 +10,8 @@ import {
 import { colors, radius, spacing, fontSize, fontWeight, commonStyles } from '../../constants/theme';
 import { RoomSelector } from './RoomSelector';
 import { StageSelector } from './StageSelector';
-import type { Plant, Room, PlantStage } from '../../types';
+import { canPerform } from '../../lib/permissions';
+import type { Plant, Room, PlantStage, UserRole } from '../../types';
 
 interface PlantManagementModalProps {
   visible: boolean;
@@ -25,7 +26,7 @@ interface PlantManagementModalProps {
   onArchive?: () => Promise<void>;
   updating?: boolean;
   isTh: boolean;
-  userRole?: string;
+  userRole?: UserRole;
 }
 
 export function PlantManagementModal({
@@ -129,7 +130,7 @@ export function PlantManagementModal({
               )}
             </TouchableOpacity>
           </View>
-          {userRole === 'ADMIN' && onArchive && (
+          {userRole && canPerform(userRole, 'plant:archive') && onArchive && (
             <TouchableOpacity
               style={styles.archiveBtn}
               onPress={onArchive}

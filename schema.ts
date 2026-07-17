@@ -5,6 +5,7 @@ export const roleTypeEnum = pgEnum('role_type', ['OPERATOR', 'SUPERVISOR', 'AUDI
 export const plantStageEnum = pgEnum('plant_stage', ['CLONE', 'VEG', 'FLOWER', 'HARVESTED', 'ARCHIVED']);
 export const batchStatusEnum = pgEnum('batch_status', ['ACTIVE', 'COMPLETED', 'ARCHIVED']);
 export const roomTypeEnum = pgEnum('room_type', ['CLONING', 'VEG', 'FLOWER', 'DRYING', 'CURING', 'PACKAGING']);
+export const motherStatusEnum = pgEnum('mother_status', ['ACTIVE', 'QUARANTINE', 'CULLED']);
 
 // 2. Users Table
 export const users = pgTable('users', {
@@ -31,6 +32,18 @@ export const batches = pgTable('batches', {
   updatedat: timestamp('updatedat', { withTimezone: true }).defaultNow().notNull(),
 });
 
+// 3b. Mother Plants Table
+export const motherPlants = pgTable('mother_plants', {
+  id: text('id').primaryKey(),
+  strainname: text('strainname').notNull(),
+  roomname: text('roomname').notNull(),
+  status: motherStatusEnum('status').default('ACTIVE').notNull(),
+  acquiredat: timestamp('acquiredat', { withTimezone: true }).defaultNow().notNull(),
+  notes: text('notes'),
+  createdat: timestamp('createdat', { withTimezone: true }).defaultNow().notNull(),
+  updatedat: timestamp('updatedat', { withTimezone: true }).defaultNow().notNull(),
+});
+
 // 4. Plants Table
 export const plants = pgTable('plants', {
   id: text('id').primaryKey(),
@@ -40,6 +53,8 @@ export const plants = pgTable('plants', {
   plantedat: timestamp('plantedat', { withTimezone: true }).defaultNow().notNull(),
   harvestedat: timestamp('harvestedat', { withTimezone: true }),
   batchid: text('batchid').references(() => batches.id, { onDelete: 'set null' }),
+  motherid: text('motherid').references(() => motherPlants.id, { onDelete: 'set null' }),
+  archivereason: text('archivereason'),
   metadata: jsonb('metadata'),
   createdat: timestamp('createdat', { withTimezone: true }).defaultNow().notNull(),
   updatedat: timestamp('updatedat', { withTimezone: true }).defaultNow().notNull(),
