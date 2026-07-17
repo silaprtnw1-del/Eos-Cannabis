@@ -10,6 +10,13 @@ export function usePlants() {
   });
 }
 
+export function useAllPlants() {
+  return useQuery({
+    queryKey: queryKeys.allPlants,
+    queryFn: async () => unwrap(await plantsService.listAll()),
+  });
+}
+
 export function usePlantStages() {
   return useQuery({
     queryKey: queryKeys.plantStages,
@@ -24,6 +31,7 @@ export function useRegisterClones() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.plants });
       queryClient.invalidateQueries({ queryKey: queryKeys.plantStages });
+      queryClient.invalidateQueries({ queryKey: queryKeys.allPlants });
     },
   });
 }
@@ -43,10 +51,12 @@ export function useTransferPlant() {
 export function useArchivePlant() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (plantId: string) => plantsService.archive(plantId).then(unwrap),
+    mutationFn: ({ plantId, archivereason }: { plantId: string; archivereason?: string | null }) =>
+      plantsService.archive(plantId, archivereason).then(unwrap),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.plants });
       queryClient.invalidateQueries({ queryKey: queryKeys.plantStages });
+      queryClient.invalidateQueries({ queryKey: queryKeys.allPlants });
     },
   });
 }

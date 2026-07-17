@@ -24,6 +24,9 @@ export type UserRole = 'OPERATOR' | 'SUPERVISOR' | 'AUDITOR' | 'ADMIN';
 /** Plant lifecycle stages from `plant_stage` enum */
 export type PlantStage = 'CLONE' | 'VEG' | 'FLOWER' | 'HARVESTED' | 'ARCHIVED';
 
+/** Propagation origin at registration — not a DB enum, stored in `plants.metadata` */
+export type PlantSource = 'PURCHASED_CLONE' | 'SEED_GROWN';
+
 /** Batch status from `batch_status` enum */
 export type BatchStatus = 'ACTIVE' | 'COMPLETED' | 'ARCHIVED';
 
@@ -41,6 +44,8 @@ export interface Plant {
   plantedat: string;
   harvestedat?: string | null;
   batchid: string | null;
+  motherid?: string | null;
+  archivereason?: string | null;
   metadata?: Record<string, unknown> | null;
 }
 
@@ -53,6 +58,21 @@ export interface Batch {
   startdate?: string;
   enddate?: string | null;
   metadata?: Record<string, unknown> | null;
+}
+
+/** Mother plant status from `mother_status` enum */
+export type MotherStatus = 'ACTIVE' | 'QUARANTINE' | 'CULLED';
+
+/** Row from `mother_plants` table */
+export interface MotherPlant {
+  id: string;
+  strainname: string;
+  roomname: string;
+  status: MotherStatus;
+  acquiredat: string;
+  notes: string | null;
+  createdat: string;
+  updatedat: string;
 }
 
 /** Row from `rooms` table */

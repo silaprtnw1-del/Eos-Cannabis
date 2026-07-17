@@ -18,6 +18,7 @@ import { colors, spacing, radius, fontSize, fontWeight, commonStyles } from '../
 import { useTranslation } from '../src/constants/i18n';
 import { GlassCard, SubTabBar, EmptyState } from '../src/components/ui';
 import { useChecklistsHistory, useCultivationLogs, useUpsertChecklist } from '../src/hooks';
+import { canPerform } from '../src/lib/permissions';
 import type { UserRole } from '../src/types';
 
 interface SopLogsScreenProps {
@@ -82,6 +83,14 @@ export default function SopLogsScreen({ isTh, operatorId, userRole }: SopLogsScr
   };
 
   const handleSaveChecklist = async () => {
+    if (!canPerform(userRole, 'sop:submit_checklist')) {
+      setSaveStatus(t('permission_denied'));
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+      }
+      timerRef.current = setTimeout(() => setSaveStatus(''), 3000);
+      return;
+    }
     setSaveStatus('Saving...');
     try {
       const today = new Date().toISOString().split('T')[0];

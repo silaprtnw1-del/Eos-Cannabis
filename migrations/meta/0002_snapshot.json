@@ -1,0 +1,775 @@
+{
+  "id": "a7667a34-90f5-4585-9de7-5c8539a953e2",
+  "prevId": "81fe5f02-c427-4d47-958c-573d1abc9d79",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.action_logs": {
+      "name": "action_logs",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "timestamp": {
+          "name": "timestamp",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "actiontype": {
+          "name": "actiontype",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "operatorid": {
+          "name": "operatorid",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "targettype": {
+          "name": "targettype",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "targetid": {
+          "name": "targetid",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "plantid": {
+          "name": "plantid",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "details": {
+          "name": "details",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "createdat": {
+          "name": "createdat",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "action_logs_operatorid_users_id_fk": {
+          "name": "action_logs_operatorid_users_id_fk",
+          "tableFrom": "action_logs",
+          "columnsFrom": [
+            "operatorid"
+          ],
+          "tableTo": "users",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "restrict"
+        },
+        "action_logs_plantid_plants_id_fk": {
+          "name": "action_logs_plantid_plants_id_fk",
+          "tableFrom": "action_logs",
+          "columnsFrom": [
+            "plantid"
+          ],
+          "tableTo": "plants",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.batches": {
+      "name": "batches",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "strainname": {
+          "name": "strainname",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "batch_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'ACTIVE'"
+        },
+        "startdate": {
+          "name": "startdate",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "enddate": {
+          "name": "enddate",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "metadata": {
+          "name": "metadata",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdat": {
+          "name": "createdat",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updatedat": {
+          "name": "updatedat",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.cultivation_logs": {
+      "name": "cultivation_logs",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "logdate": {
+          "name": "logdate",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "batchid": {
+          "name": "batchid",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "roomname": {
+          "name": "roomname",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "watervolume": {
+          "name": "watervolume",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "waterunit": {
+          "name": "waterunit",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'liters'"
+        },
+        "phin": {
+          "name": "phin",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ecin": {
+          "name": "ecin",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "runoffvolume": {
+          "name": "runoffvolume",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "phout": {
+          "name": "phout",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ecout": {
+          "name": "ecout",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "nutrientsfeed": {
+          "name": "nutrientsfeed",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "operatorid": {
+          "name": "operatorid",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdat": {
+          "name": "createdat",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updatedat": {
+          "name": "updatedat",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "cultivation_logs_batchid_batches_id_fk": {
+          "name": "cultivation_logs_batchid_batches_id_fk",
+          "tableFrom": "cultivation_logs",
+          "columnsFrom": [
+            "batchid"
+          ],
+          "tableTo": "batches",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        },
+        "cultivation_logs_operatorid_users_id_fk": {
+          "name": "cultivation_logs_operatorid_users_id_fk",
+          "tableFrom": "cultivation_logs",
+          "columnsFrom": [
+            "operatorid"
+          ],
+          "tableTo": "users",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "restrict"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.environmental_logs": {
+      "name": "environmental_logs",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "recordedat": {
+          "name": "recordedat",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "roomname": {
+          "name": "roomname",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tempc": {
+          "name": "tempc",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "humidityrh": {
+          "name": "humidityrh",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "vpd": {
+          "name": "vpd",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ppfd": {
+          "name": "ppfd",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "dli": {
+          "name": "dli",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sensorraw": {
+          "name": "sensorraw",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sensorid": {
+          "name": "sensorid",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdat": {
+          "name": "createdat",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.gacp_compliance_checklists": {
+      "name": "gacp_compliance_checklists",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "checkdate": {
+          "name": "checkdate",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "operatorid": {
+          "name": "operatorid",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tasks": {
+          "name": "tasks",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "haspestincident": {
+          "name": "haspestincident",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "incidentdetails": {
+          "name": "incidentdetails",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "correctiveaction": {
+          "name": "correctiveaction",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "audittrail": {
+          "name": "audittrail",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'"
+        },
+        "createdat": {
+          "name": "createdat",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updatedat": {
+          "name": "updatedat",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "gacp_compliance_checklists_operatorid_users_id_fk": {
+          "name": "gacp_compliance_checklists_operatorid_users_id_fk",
+          "tableFrom": "gacp_compliance_checklists",
+          "columnsFrom": [
+            "operatorid"
+          ],
+          "tableTo": "users",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "restrict"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "gacp_compliance_checklists_checkdate_unique": {
+          "name": "gacp_compliance_checklists_checkdate_unique",
+          "columns": [
+            "checkdate"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.plants": {
+      "name": "plants",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "strainname": {
+          "name": "strainname",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "stage": {
+          "name": "stage",
+          "type": "plant_stage",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'CLONE'"
+        },
+        "roomname": {
+          "name": "roomname",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "plantedat": {
+          "name": "plantedat",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "harvestedat": {
+          "name": "harvestedat",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "batchid": {
+          "name": "batchid",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "metadata": {
+          "name": "metadata",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdat": {
+          "name": "createdat",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updatedat": {
+          "name": "updatedat",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "plants_batchid_batches_id_fk": {
+          "name": "plants_batchid_batches_id_fk",
+          "tableFrom": "plants",
+          "columnsFrom": [
+            "batchid"
+          ],
+          "tableTo": "batches",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "set null"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.rooms": {
+      "name": "rooms",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "type": {
+          "name": "type",
+          "type": "room_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "is_active": {
+          "name": "is_active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "rooms_name_unique": {
+          "name": "rooms_name_unique",
+          "columns": [
+            "name"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.users": {
+      "name": "users",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "username": {
+          "name": "username",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "fullname": {
+          "name": "fullname",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "role_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'OPERATOR'"
+        },
+        "isactive": {
+          "name": "isactive",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "phone": {
+          "name": "phone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdat": {
+          "name": "createdat",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updatedat": {
+          "name": "updatedat",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "users_username_unique": {
+          "name": "users_username_unique",
+          "columns": [
+            "username"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {
+    "public.batch_status": {
+      "name": "batch_status",
+      "schema": "public",
+      "values": [
+        "ACTIVE",
+        "COMPLETED",
+        "ARCHIVED"
+      ]
+    },
+    "public.plant_stage": {
+      "name": "plant_stage",
+      "schema": "public",
+      "values": [
+        "CLONE",
+        "VEG",
+        "FLOWER",
+        "HARVESTED",
+        "ARCHIVED"
+      ]
+    },
+    "public.role_type": {
+      "name": "role_type",
+      "schema": "public",
+      "values": [
+        "OPERATOR",
+        "SUPERVISOR",
+        "AUDITOR",
+        "ADMIN"
+      ]
+    },
+    "public.room_type": {
+      "name": "room_type",
+      "schema": "public",
+      "values": [
+        "CLONING",
+        "VEG",
+        "FLOWER",
+        "DRYING",
+        "CURING",
+        "PACKAGING"
+      ]
+    }
+  },
+  "schemas": {},
+  "views": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

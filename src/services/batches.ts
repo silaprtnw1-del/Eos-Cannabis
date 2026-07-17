@@ -15,4 +15,14 @@ export const batchesService = {
       return err(e);
     }
   },
+
+  async create(input: { id: string; name: string; strainname: string }): Promise<Result<void>> {
+    try {
+      const { error } = await supabase.from('batches').insert(input);
+      if (error) throw error;
+      return ok(undefined);
+    } catch (e) {
+      return err(e);
+    }
+  },
 };

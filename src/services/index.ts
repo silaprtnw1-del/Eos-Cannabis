@@ -5,6 +5,8 @@ export { plantsService } from './plants';
 export type { RegisterClonesInput, TransferPlantInput } from './plants';
 export { roomsService } from './rooms';
 export { batchesService } from './batches';
+export { motherPlantsService } from './motherPlants';
+export type { CreateMotherPlantInput } from './motherPlants';
 export { cultivationLogsService } from './cultivationLogs';
 export type { CreateCultivationLogInput } from './cultivationLogs';
 export { environmentalLogsService } from './environmentalLogs';
