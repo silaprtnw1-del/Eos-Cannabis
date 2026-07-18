@@ -27,12 +27,16 @@ export const authService = {
     try {
       const { data, error } = await supabase
         .from('users')
-        .select('role, fullname')
+        .select('role, fullname, isactive')
         .eq('id', userId)
         .single();
 
       if (!error && data) {
-        return ok({ role: data.role as UserRole, fullname: data.fullname });
+        return ok({
+          role: data.role as UserRole,
+          fullname: data.fullname,
+          isactive: data.isactive as boolean,
+        });
       }
 
       const { data: userData } = await supabase.auth.getUser();

@@ -139,6 +139,10 @@ export interface EnvironmentalLog {
 export interface UserProfile {
   role: UserRole;
   fullname: string;
+  /** Whether the account is enabled. A deactivated user (isactive === false)
+   * must not be granted an app session — see authStore / LoginScreen. Optional
+   * because the metadata fallback path in fetchProfile can't determine it. */
+  isactive?: boolean;
 }
 
 /** Row from `action_logs` table */

@@ -28,13 +28,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const session = await authService.getSession();
     if (session) {
       const { data } = await authService.fetchProfile(session.user.id);
-      set({
-        session,
-        userRole: data?.role ?? DEFAULT_ROLE,
-        userFullName: data?.fullname ?? DEFAULT_NAME,
-        loading: false,
-        initialized: true,
-      });
+      if (data?.isactive === false) {
+        // Account deactivated — refuse the restored session outright.
+        await authService.signOut();
+        set({ session: null, userRole: DEFAULT_ROLE, userFullName: DEFAULT_NAME, loading: false, initialized: true });
+      } else {
+        set({
+          session,
+          userRole: data?.role ?? DEFAULT_ROLE,
+          userFullName: data?.fullname ?? DEFAULT_NAME,
+          loading: false,
+          initialized: true,
+        });
+      }
     } else {
       set({ session: null, loading: false, initialized: true });
     }
@@ -42,6 +48,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const { data: sub } = authService.onAuthStateChange(async (nextSession) => {
       if (nextSession) {
         const { data } = await authService.fetchProfile(nextSession.user.id);
+        if (data?.isactive === false) {
+          // Caught on token refresh / re-auth: a user deactivated mid-session
+          // is signed out at the next auth event (RLS already blocks their
+          // reads/writes server-side in the meantime).
+          await authService.signOut();
+          return;
+        }
         set({
           session: nextSession,
           userRole: data?.role ?? DEFAULT_ROLE,

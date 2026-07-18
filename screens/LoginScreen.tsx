@@ -60,7 +60,7 @@ export default function LoginScreen({ isTh, onLoginSuccess }: LoginScreenProps) 
       const { user } = session;
       const { data: profile, error } = await supabase
         .from('users')
-        .select('role, fullname')
+        .select('role, fullname, isactive')
         .eq('id', user.id)
         .single();
 
@@ -72,6 +72,18 @@ export default function LoginScreen({ isTh, onLoginSuccess }: LoginScreenProps) 
           isTh
             ? 'ไม่พบบัญชีพนักงานในระบบ กรุณาติดต่อผู้ดูแล'
             : 'Operator profile not found. Contact an administrator.'
+        );
+        return;
+      }
+
+      if (!profile.isactive) {
+        // Deactivated account — deny login (server-side RLS also blocks it).
+        await supabase.auth.signOut();
+        Alert.alert(
+          t('login_auth_error'),
+          isTh
+            ? 'บัญชีนี้ถูกปิดใช้งาน กรุณาติดต่อผู้ดูแล'
+            : 'This account has been deactivated. Contact an administrator.'
         );
         return;
       }
