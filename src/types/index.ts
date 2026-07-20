@@ -93,6 +93,14 @@ export interface ClimateMetric {
   dli?: number | null;
 }
 
+/** One historical `environmental_logs` row, for trend charts */
+export interface ClimatePoint {
+  recordedat: string;
+  tempc: number;
+  humidityrh: number;
+  vpd: number;
+}
+
 /** Row from `gacp_compliance_checklists` table */
 export interface ChecklistLog {
   id: string;

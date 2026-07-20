@@ -57,6 +57,13 @@ const translations = {
   dash_remaining: { th: 'ยังมีงาน SOP คงค้างที่ต้องเคลียร์วันนี้', en: 'SOP tasks remaining.' },
   dash_open_checklist: { th: 'เปิดใบเช็คลิสต์ SOP ➡️', en: 'Open Checklist Form ➡️' },
   dash_climate_title: { th: 'สภาพแวดล้อมห้องปลูกล่าสุด', en: 'Live Room Climate' },
+  dash_trend_title: { th: 'แนวโน้มสภาพแวดล้อม', en: 'Environment Trend' },
+  dash_trend_temp: { th: 'อุณหภูมิ', en: 'Temp' },
+  dash_trend_rh: { th: 'ความชื้น', en: 'RH' },
+  dash_trend_vpd: { th: 'VPD', en: 'VPD' },
+  dash_trend_6h: { th: '6 ชม.', en: '6H' },
+  dash_trend_24h: { th: '24 ชม.', en: '24H' },
+  dash_trend_7d: { th: '7 วัน', en: '7D' },
   dash_nutrients_shortcut: { th: 'จ่ายน้ำปุ๋ย & Runoff', en: 'Nutrients & Runoff' },
   dash_plants_shortcut: { th: 'คลังพืช & สแกนย้ายห้อง', en: 'Plants & Transfers' },
 

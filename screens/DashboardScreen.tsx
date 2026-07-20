@@ -2,9 +2,21 @@ import React, { useState, useCallback } from 'react';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { colors, spacing, radius, fontSize, fontWeight } from '../src/constants/theme';
 import { useTranslation } from '../src/constants/i18n';
-import { GlassCard, ErrorState } from '../src/components/ui';
+import { GlassCard, ErrorState, PillSelector } from '../src/components/ui';
+import { EnvironmentChart } from '../src/components/EnvironmentChart';
 import type { ScreenName } from '../src/types';
-import { useDashboardStats, useLatestClimates } from '../src/hooks';
+import { useDashboardStats, useLatestClimates, useHistoricalClimates } from '../src/hooks';
+
+const TREND_UNITS: Record<'tempc' | 'humidityrh' | 'vpd', string> = {
+  tempc: '°C',
+  humidityrh: '%',
+  vpd: 'kPa',
+};
+const TREND_COLORS: Record<'tempc' | 'humidityrh' | 'vpd', string> = {
+  tempc: colors.warning,
+  humidityrh: colors.info,
+  vpd: colors.accent,
+};
 
 interface DashboardScreenProps {
   isTh: boolean;
@@ -21,12 +33,18 @@ export default function DashboardScreen({ isTh, onNavigate }: DashboardScreenPro
   const loading = stats.loading || climatesQuery.isLoading;
   const error = stats.error || (climatesQuery.error ? climatesQuery.error.message : '');
 
+  const [trendMetric, setTrendMetric] = useState<'tempc' | 'humidityrh' | 'vpd'>('vpd');
+  const [trendHours, setTrendHours] = useState<number>(24);
+  const trendRoom = climates[0]?.roomname ?? '';
+  const historyQuery = useHistoricalClimates(trendRoom, trendHours);
+
   const { cloneCount, vegCount, flowerCount, complianceRate, totalTasks, completedTasks } = stats;
 
   const refetchAll = useCallback(() => {
     stats.refetch();
     climatesQuery.refetch();
-  }, [stats, climatesQuery]);
+    historyQuery.refetch();
+  }, [stats, climatesQuery, historyQuery]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -161,6 +179,39 @@ export default function DashboardScreen({ isTh, onNavigate }: DashboardScreenPro
               </View>
             </View>
           ))
+        )}
+      </GlassCard>
+
+      {/* Environment Trend Chart */}
+      <GlassCard title={t('dash_trend_title')}>
+        <PillSelector
+          options={[
+            { value: 'tempc', label: t('dash_trend_temp') },
+            { value: 'humidityrh', label: t('dash_trend_rh') },
+            { value: 'vpd', label: t('dash_trend_vpd') },
+          ]}
+          selectedValue={trendMetric}
+          onChange={(v) => setTrendMetric(v as typeof trendMetric)}
+        />
+        <PillSelector
+          options={[
+            { value: '6', label: t('dash_trend_6h') },
+            { value: '24', label: t('dash_trend_24h') },
+            { value: '168', label: t('dash_trend_7d') },
+          ]}
+          selectedValue={String(trendHours)}
+          onChange={(v) => setTrendHours(Number(v))}
+        />
+        {historyQuery.isLoading ? (
+          <ActivityIndicator size="small" color={colors.accent} style={styles.loader} />
+        ) : (
+          <EnvironmentChart
+            data={historyQuery.data ?? []}
+            metric={trendMetric}
+            unit={TREND_UNITS[trendMetric]}
+            color={TREND_COLORS[trendMetric]}
+            decimals={trendMetric === 'humidityrh' ? 0 : trendMetric === 'vpd' ? 2 : 1}
+          />
         )}
       </GlassCard>
 

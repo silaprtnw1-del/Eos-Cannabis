@@ -18,6 +18,8 @@ export const queryKeys = {
   motherPlants: ['motherPlants'] as const,
   cultivationLogs: ['cultivationLogs'] as const,
   latestClimates: ['environmentalLogs', 'latest'] as const,
+  historicalClimates: (roomname: string, hours: number) =>
+    ['environmentalLogs', 'historical', roomname, hours] as const,
   gacpChecklist: (checkdate: string) => ['gacpChecklists', checkdate] as const,
   gacpChecklists: ['gacpChecklists'] as const,
   users: ['users'] as const,

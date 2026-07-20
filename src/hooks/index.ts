@@ -3,7 +3,7 @@ export { useRooms, useCreateRoom, useSoftDeleteRoom } from './useRooms';
 export { useBatches, useCreateBatch } from './useBatches';
 export { useMotherPlants, useCreateMotherPlant } from './useMotherPlants';
 export { useCultivationLogs, useCreateCultivationLog } from './useCultivationLogs';
-export { useLatestClimates } from './useEnvironmentalLogs';
+export { useLatestClimates, useHistoricalClimates } from './useEnvironmentalLogs';
 export { useChecklistByDate, useChecklistsHistory, useUpsertChecklist } from './useGacpChecklists';
 export { useCreateActionLog } from './useActionLogs';
 export { useUsers, useSetUserActive, useRegisterOperator } from './useUsers';
